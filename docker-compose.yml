@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # Servicio de Base de Datos PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: hotel_crm_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: rootpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      # Esto guarda los datos en tu disco duro para que no se borren al reiniciar
+      - ./infrastructure/pgdata:/var/lib/postgresql/data
+      # Esto ejecuta tu script SQL la primera vez
+      - ./infrastructure/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - hotel-network
+
+  # Interfaz gráfica para ver la Base de Datos (Opcional pero muy útil para ti)
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: hotel_db_admin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: root
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - hotel-network
+
+networks:
+  hotel-network:
+    driver: bridge
