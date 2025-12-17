@@ -29,9 +29,10 @@ services:
       - "5050:80"
     depends_on:
       - postgres
+    volumes:  
+      - ./infrastructure/pgadmin_data:/var/lib/pgadmin
     networks:
       - hotel-network
-
 networks:
   hotel-network:
     driver: bridge
