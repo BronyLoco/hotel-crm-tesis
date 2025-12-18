@@ -1,35 +1,40 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import GuestList from './components/GuestList';
+import GuestForm from './components/GuestForm';
+import RoomList from './components/RoomList'; // <--- Importar esto
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [refreshTrigger, setRefreshTrigger] = useState(false);
+
+  const handleGuestAdded = () => {
+    setRefreshTrigger(!refreshTrigger);
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto' }}>
+      <header style={{ marginBottom: '30px', borderBottom: '2px solid #333', paddingBottom: '10px' }}>
+        <h1 style={{ margin: 0 }}>🏨 Hotel CRM - Recepción</h1>
+        <small>Panel de Control Integral</small>
+      </header>
+      
+      <main style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
+        
+        {/* COLUMNA IZQUIERDA: GESTIÓN DE HUÉSPEDES */}
+        <section>
+          <h2 style={{ borderBottom: '1px solid #ccc' }}>👤 Gestión de Huéspedes</h2>
+          <GuestForm onGuestAdded={handleGuestAdded} />
+          <GuestList key={refreshTrigger} /> 
+        </section>
+
+        {/* COLUMNA DERECHA: ESTADO DEL HOTEL */}
+        <section>
+          <h2 style={{ borderBottom: '1px solid #ccc' }}>🛏️ Inventario de Habitaciones</h2>
+          <RoomList />
+        </section>
+
+      </main>
+    </div>
   )
 }
 
-export default App
+export default App;
