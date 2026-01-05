@@ -92,4 +92,24 @@ const payFolio = async (req, res) => {
   }
 };
 
-module.exports = { createFolio, addCharge, getFolioDetails, payFolio };
+// Reporte simple de ingresos
+const getDailyRevenue = async (req, res) => {
+  try {
+    const folios = await Folio.findAll({ where: { status: 'PAID' } });
+    
+    // Sumar el total (Reduce de JavaScript)
+    const total = folios.reduce((sum, folio) => sum + parseFloat(folio.totalAmount), 0);
+    
+    res.json({ totalRevenue: total, count: folios.length });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = { 
+  createFolio, 
+  addCharge, 
+  getFolioDetails, 
+  payFolio, 
+  getDailyRevenue 
+};

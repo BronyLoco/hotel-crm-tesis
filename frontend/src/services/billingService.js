@@ -30,3 +30,8 @@ export const payFolio = async (folioId) => {
   const response = await axios.post(`${API_URL}/${folioId}/pay`);
   return response.data;
 };
+
+export const getRevenue = async () => {
+  const response = await axios.get(`${API_URL}/reports/revenue`);
+  return response.data;
+};

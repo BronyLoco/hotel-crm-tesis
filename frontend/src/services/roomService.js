@@ -12,3 +12,12 @@ export const getRooms = async () => {
     throw error;
   }
 };
+export const updateRoomStatus = async (roomNumber, status) => {
+  try {
+    const response = await axios.patch(`${API_URL}/${roomNumber}/status`, { status });
+    return response.data;
+  } catch (error) {
+    console.error("Error actualizando habitación:", error);
+    throw error;
+  }
+};
