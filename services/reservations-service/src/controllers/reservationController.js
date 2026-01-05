@@ -91,7 +91,7 @@ const getReservations = async (req, res) => {
 const checkIn = async (req, res) => {
   try {
     const { reservationId } = req.params;
-    const { roomNumber } = req.body; // El recepcionista eligió la "101"
+    const { roomNumber } = req.body;
 
     // 1. Buscar la reserva
     const reservation = await Reservation.findByPk(reservationId);
@@ -115,12 +115,79 @@ const checkIn = async (req, res) => {
     reservation.assignedRoomId = roomNumber;
     await reservation.save();
 
+    // ---------------------------------------------------------
+    // PASO 4 (NUEVO): CREAR AUTOMÁTICAMENTE EL FOLIO EN FACTURACIÓN
+    // ---------------------------------------------------------
+    try {
+      console.log(`📡 Solicitando creación de folio para reserva ${reservationId}...`);
+      await axios.post(process.env.BILLING_SERVICE_URL, {
+        reservationId: reservation.id
+      });
+      console.log("✅ Folio creado exitosamente.");
+    } catch (billingError) {
+      // Si falla la facturación, NO detenemos el check-in, pero avisamos en consola.
+      // En un sistema real, esto iría a una cola de reintentos (Kafka/RabbitMQ).
+      console.error("⚠️ Advertencia: No se pudo crear el folio automáticamente:", billingError.message);
+    }
+    // ---------------------------------------------------------
+
     res.json({ message: 'Check-in realizado con éxito', reservation });
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
     console.error("🔴 ERROR CRÍTICO EN CHECK-IN:", error); 
+    res.status(500).json({ error: error.message });
+  }
+};
+const checkOut = async (req, res) => {
+  try {
+    const { reservationId } = req.params;
+
+    // 1. Buscar la reserva
+    const reservation = await Reservation.findByPk(reservationId);
+    if (!reservation) return res.status(404).json({ message: 'Reserva no encontrada' });
+
+    if (reservation.status !== 'CHECKED_IN') {
+      return res.status(400).json({ message: 'Solo se puede hacer Check-out de reservas activas (CHECKED_IN)' });
+    }
+
+    // 2. VALIDACIÓN DE DEUDA (Llamada a Billing)
+    try {
+      // Obtenemos el folio de esta reserva
+      const response = await axios.get(`${process.env.BILLING_SERVICE_URL}/reservation/${reservationId}`);
+      const folio = response.data;
+
+      if (folio.status !== 'PAID') {
+        // Si no está pagado, detenemos todo. ¡No te vas sin pagar!
+        return res.status(402).json({ 
+          message: `El huésped tiene deuda pendiente ($${folio.totalAmount}). Debe pagar el folio antes de salir.` 
+        });
+      }
+    } catch (billingError) {
+      // Si falla la conexión a billing, es arriesgado dejarlo ir, pero para dev:
+      console.error("Error consultando deuda:", billingError.message);
+      // Opcional: return res.status(500).json({ message: "Error verificando deuda" });
+    }
+
+    // 3. Liberar la Habitación (Ponerla en DIRTY para limpieza)
+    if (reservation.assignedRoomId) {
+      try {
+        await axios.patch(`${process.env.ROOMS_SERVICE_URL}/${reservation.assignedRoomId}/status`, {
+          status: 'DIRTY' // Se marca sucia para que limpien antes de volver a usar
+        });
+      } catch (roomError) {
+        console.error("Error liberando habitación:", roomError.message);
+      }
+    }
+
+    // 4. Cerrar Reserva
+    reservation.status = 'CHECKED_OUT';
+    await reservation.save();
+
+    res.json({ message: 'Check-out exitoso. Habitación liberada para limpieza.', reservation });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
 
-module.exports = { createReservation, getReservations, checkIn };
+module.exports = { createReservation, getReservations, checkIn, checkOut };

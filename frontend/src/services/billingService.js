@@ -1,0 +1,32 @@
+import axios from 'axios';
+
+const API_URL = 'http://localhost:3004/api/billing';
+
+// Obtener la cuenta buscando por ID de Reserva
+export const getFolioByReservation = async (reservationId) => {
+  try {
+    const response = await axios.get(`${API_URL}/reservation/${reservationId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error obteniendo folio:", error);
+    throw error;
+  }
+};
+
+// Agregar un cargo a la cuenta
+export const addCharge = async (folioId, description, amount) => {
+  try {
+    const response = await axios.post(`${API_URL}/${folioId}/charges`, {
+      description,
+      amount
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error agregando cargo:", error);
+    throw error;
+  }
+};
+export const payFolio = async (folioId) => {
+  const response = await axios.post(`${API_URL}/${folioId}/pay`);
+  return response.data;
+};

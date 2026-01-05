@@ -24,3 +24,7 @@ export const doCheckIn = async (reservationId, roomNumber) => {
   const response = await axios.post(`${API_URL}/${reservationId}/checkin`, { roomNumber });
   return response.data;
 };
+export const doCheckOut = async (reservationId) => {
+  const response = await axios.post(`${API_URL}/${reservationId}/checkout`);
+  return response.data;
+};
