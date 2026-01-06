@@ -33,6 +33,19 @@ services:
       - ./infrastructure/pgadmin_data:/var/lib/pgadmin
     networks:
       - hotel-network
+  gateway:
+    image: nginx:alpine
+    container_name: hotel_gateway
+    ports:
+      - "8080:80" # El puerto 8080 de tu PC llevará al 80 de Nginx
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    # extra_hosts es vital en Linux, en Windows Docker Desktop suele manejarlo solo,
+    # pero lo ponemos por seguridad para que reconozca el host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - hotel-network
 networks:
   hotel-network:
     driver: bridge

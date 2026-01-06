@@ -1,4 +1,5 @@
 const Guest = require('../models/Guest');
+const { Op } = require('sequelize');
 
 // 1. Crear un nuevo huésped
 const createGuest = async (req, res) => {
@@ -31,7 +32,14 @@ const createGuest = async (req, res) => {
 // 2. Obtener todos los huéspedes
 const getGuests = async (req, res) => {
   try {
-    const guests = await Guest.findAll();
+    const { groupCode } = req.query;
+    let whereClause = {};
+
+    if (groupCode) {
+      whereClause.groupCode = groupCode;
+    }
+
+    const guests = await Guest.findAll({ where: whereClause });
     res.json(guests);
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener huéspedes' });

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Nota que este apunta al puerto 3002
-const API_URL = 'http://localhost:3002/api/rooms';
+const API_URL = 'http://localhost:8080/api/rooms';
 
 export const getRooms = async () => {
   try {

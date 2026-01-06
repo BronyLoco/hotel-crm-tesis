@@ -1,18 +1,31 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
-const RoomType = require('./RoomType');
+// Quitamos el require de RoomType de aquí arriba para evitar bucles de importación
 
 const Room = sequelize.define('Room', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  number: { type: DataTypes.STRING, allowNull: false, unique: true }, // Ej: "101"
+  number: { type: DataTypes.STRING, allowNull: false, unique: true },
+  
   status: { 
-    type: DataTypes.ENUM('AVAILABLE', 'OCCUPIED', 'DIRTY', 'MAINTENANCE'),
+    type: DataTypes.ENUM('AVAILABLE', 'OCCUPIED', 'PARTIALLY_OCCUPIED', 'DIRTY', 'MAINTENANCE'),
     defaultValue: 'AVAILABLE' 
+  },
+  
+  // CAMPOS NUEVOS
+  maxOccupancy: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 2
+  },
+  currentOccupancy: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0
+  },
+  roomTypeId: { // Definimos la FK explícitamente
+    type: DataTypes.INTEGER,
+    allowNull: true
   }
 });
-
-// Definir la relación: Un Tipo tiene muchas Habitaciones
-RoomType.hasMany(Room, { foreignKey: 'roomTypeId' });
-Room.belongsTo(RoomType, { foreignKey: 'roomTypeId' });
 
 module.exports = Room;

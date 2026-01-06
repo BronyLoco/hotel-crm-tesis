@@ -33,6 +33,7 @@ function GuestList() {
             <th>Nombre</th>
             <th>Email</th>
             <th>Documento</th>
+            <th>Grupo</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -43,6 +44,9 @@ function GuestList() {
               <td>{guest.firstName} {guest.lastName}</td>
               <td>{guest.email}</td>
               <td>{guest.documentId}</td>
+              <td style={{fontWeight: 'bold', color: '#1565c0'}}>
+                 {guest.groupCode || '-'}
+              </td> 
               <td>
                 <button>Editar</button>
               </td>

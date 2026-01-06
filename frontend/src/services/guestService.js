@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // La URL de tu backend (Guests Service)
-const API_URL = 'http://localhost:3001/api/guests';
+const API_URL = 'http://localhost:8080/api/guests';
 
 export const getGuests = async () => {
   try {

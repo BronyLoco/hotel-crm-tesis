@@ -31,6 +31,11 @@ const Guest = sequelize.define('Guest', {
     type: DataTypes.STRING,
     allowNull: false,
     unique: true
+  },
+  groupCode: {
+    type: DataTypes.STRING,
+    allowNull: true, // Puede ser null si viene solo
+    defaultValue: null
   }
 }, {
   timestamps: true, // Crea createdAt y updatedAt automáticamente

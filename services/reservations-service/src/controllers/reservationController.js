@@ -43,9 +43,13 @@ const createReservation = async (req, res) => {
     const conflictingReservations = await Reservation.count({
       where: {
         roomTypeId,
-        status: 'CONFIRMED',
-        checkIn: { [Op.lt]: checkOut }, 
-        checkOut: { [Op.gt]: checkIn } 
+        // Solo nos importan las activas o confirmadas. Las canceladas o check-out (pasadas) no cuentan.
+        status: { [Op.in]: ['CONFIRMED', 'CHECKED_IN'] }, 
+        
+        [Op.and]: [
+          { checkIn: { [Op.lt]: checkOut } }, // Empieza antes de que yo salga
+          { checkOut: { [Op.gt]: checkIn } }  // Termina después de que yo entre
+        ]
       }
     });
 
@@ -101,13 +105,16 @@ const checkIn = async (req, res) => {
       return res.status(400).json({ message: 'Esta reserva ya tiene Check-in realizado' });
     }
 
-    // 2. Comunicar al servicio de Habitaciones: "Marca la 101 como OCUPADA"
+    // 2. Comunicar al servicio de Habitaciones: "Suma 1 persona"
     try {
       await axios.patch(`${process.env.ROOMS_SERVICE_URL}/${roomNumber}/status`, {
-        status: 'OCCUPIED'
+        occupancyChange: 1
       });
     } catch (error) {
-      return res.status(500).json({ message: 'Error contactando servicio de habitaciones', error: error.message });
+      // Si la habitación está llena, el servicio de rooms devolverá error 400
+      return res.status(400).json({ 
+          message: 'Error al asignar habitación: ' + (error.response?.data?.message || error.message) 
+      });
     }
 
     // 3. Actualizar la reserva localmente
@@ -168,17 +175,16 @@ const checkOut = async (req, res) => {
       // Opcional: return res.status(500).json({ message: "Error verificando deuda" });
     }
 
-    // 3. Liberar la Habitación (Ponerla en DIRTY para limpieza)
+    // 3. Liberar espacio en la habitación
     if (reservation.assignedRoomId) {
       try {
         await axios.patch(`${process.env.ROOMS_SERVICE_URL}/${reservation.assignedRoomId}/status`, {
-          status: 'DIRTY' // Se marca sucia para que limpien antes de volver a usar
+          occupancyChange: -1 // Restamos una persona
         });
       } catch (roomError) {
         console.error("Error liberando habitación:", roomError.message);
       }
     }
-
     // 4. Cerrar Reserva
     reservation.status = 'CHECKED_OUT';
     await reservation.save();
