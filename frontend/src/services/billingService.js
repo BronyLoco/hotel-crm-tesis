@@ -12,6 +12,16 @@ export const getFolioByReservation = async (reservationId) => {
     throw error;
   }
 };
+//Crear Cuenta
+export const createFolio = async (reservationId) => {
+  try {
+    const response = await axios.post(API_URL, { reservationId });
+    return response.data;
+  } catch (error) {
+    console.error("Error creando folio:", error);
+    throw error;
+  }
+};
 
 // Agregar un cargo a la cuenta
 export const addCharge = async (folioId, description, amount) => {

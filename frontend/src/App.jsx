@@ -10,25 +10,19 @@ import ReservationList from './components/ReservationList';
 import LoginPage from './components/LoginPage';
 import PublicGroupRegister from './components/PublicGroupRegister';
 import GroupManager from './components/GroupManager';
+import WalkInWizard from './components/WalkInWizard';
 
 function App() {
-  //Estado de sesión
+  // 1. TODOS LOS HOOKS PRIMERO (useState)
   const [user, setUser] = useState(getCurrentUser());
-
-  // Estados para controlar las recargas automáticas
   const [refreshGuests, setRefreshGuests] = useState(false);
   const [refreshReservations, setRefreshReservations] = useState(false);
   const [refreshInventory, setRefreshInventory] = useState(false);
   const [totalMoney, setTotalMoney] = useState(0);
-  
-  // 1. fix ROUTING MANUAL (Para la Tesis)
-  // Si la URL es "/registro-grupo", mostramos el componente público y salimos.
-  if (window.location.pathname === '/registro-grupo') {
-    return <PublicGroupRegister />;
-  }
 
-// Efecto de Ingresos (solo si hay usuario)
+  // 2. TODOS LOS EFECTOS DESPUÉS (useEffect)
   useEffect(() => {
+    // Validamos dentro del efecto si hay usuario, no fuera
     if (user) {
       const loadMoney = async () => {
         try {
@@ -40,22 +34,29 @@ function App() {
     }
   }, [refreshReservations, user]);
 
-  // Manejador de Login exitoso
+  // 3. FUNCIONES AUXILIARES
   const handleLoginSuccess = () => {
     setUser(getCurrentUser());
   };
 
-  // Manejador de Logout
   const handleLogout = () => {
     logout();
     setUser(null);
   };
-// 🔒 EL MURO DE SEGURIDAD
+
+  // 4. AHORA SÍ, LAS CONDICIONES DE RENDERIZADO (RETURNS)
+  
+  // A) Ruta Pública (Registro de Grupo)
+  if (window.location.pathname === '/registro-grupo') {
+    return <PublicGroupRegister />;
+  }
+
+  // B) Muro de Seguridad (Login)
   if (!user) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
-    // Efecto para cargar dinero cada vez que cambia algo en reservas (por si pagaron)
-  
+
+  // C) Aplicación Principal (Dashboard)
   return (
     <div style={{ padding: '20px', fontFamily: 'Segoe UI, sans-serif', maxWidth: '1400px', margin: '0 auto' }}>
       
@@ -98,7 +99,17 @@ function App() {
         {/* COLUMNA 1: CLIENTES */}
         <section style={{ borderRight: '1px solid #ddd', paddingRight: '20px' }}>
           <h2>👤 Recepción</h2>
-          <GuestForm onGuestAdded={() => setRefreshGuests(!refreshGuests)} />
+          
+          {/* 1. NUEVO INGRESO (INDIVIDUAL / FAMILIA) */}
+          <WalkInWizard 
+          refreshTrigger={refreshInventory}
+          onComplete={() => {
+             setRefreshGuests(!refreshGuests);
+             setRefreshReservations(!refreshReservations);
+             setRefreshInventory(!refreshInventory);
+          }} />
+
+          {/* 2. GESTIÓN DE DELEGACIONES (GRUPOS) */}
           <GroupManager onUpdate={() => {
              setRefreshReservations(!refreshReservations);
              setRefreshInventory(!refreshInventory);
@@ -112,7 +123,9 @@ function App() {
         <section style={{ borderRight: '1px solid #ddd', paddingRight: '20px' }}>
           <h2>📅 Central de Reservas</h2>
           
+          {/* BookingForm clásico (Opcional, si quieres mantener el método manual antiguo) */}
           <BookingForm onReservationCreated={() => setRefreshReservations(!refreshReservations)} />
+          
           <ReservationList 
             refresh={refreshReservations} 
             onCheckInSuccess={() => setRefreshInventory(!refreshInventory)} 

@@ -36,6 +36,10 @@ const Guest = sequelize.define('Guest', {
     type: DataTypes.STRING,
     allowNull: true, // Puede ser null si viene solo
     defaultValue: null
+  },
+  isVip: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   }
 }, {
   timestamps: true, // Crea createdAt y updatedAt automáticamente
