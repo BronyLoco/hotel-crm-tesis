@@ -20,3 +20,7 @@ export const updateRoomStatus = async (roomNumber, status, occupancyChange = 0) 
   const response = await axios.patch(`${API_URL}/${roomNumber}/status`, payload);
   return response.data;
 };
+export const initializeRooms = async () => {
+  const response = await axios.post(`${API_URL}/init`);
+  return response.data;
+};

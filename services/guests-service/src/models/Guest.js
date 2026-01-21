@@ -17,8 +17,8 @@ const Guest = sequelize.define('Guest', {
   },
   email: {
     type: DataTypes.STRING,
-    allowNull: false,
-    unique: true, // No puede haber dos emails iguales
+    allowNull: true,
+    unique: false, // No puede haber dos emails iguales
     validate: {
       isEmail: true
     }
@@ -30,8 +30,12 @@ const Guest = sequelize.define('Guest', {
   documentId: { // DNI o Pasaporte
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true
+    unique: false
   },
+  
+  country: { type: DataTypes.STRING, allowNull: true },
+  city: { type: DataTypes.STRING, allowNull: true },
+
   groupCode: {
     type: DataTypes.STRING,
     allowNull: true, // Puede ser null si viene solo
@@ -40,6 +44,10 @@ const Guest = sequelize.define('Guest', {
   isVip: {
     type: DataTypes.BOOLEAN,
     defaultValue: false
+  },
+  hotelId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
   }
 }, {
   timestamps: true, // Crea createdAt y updatedAt automáticamente

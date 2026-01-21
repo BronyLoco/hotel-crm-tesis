@@ -1,16 +1,22 @@
+const { Op } = require('sequelize');
 const Folio = require('../models/Folio');
 const Charge = require('../models/Charge');
 
 // Crear Folio (Se llamará cuando haya Check-in)
 const createFolio = async (req, res) => {
   try {
+    const hotelId = req.headers['x-hotel-id']; 
+    if (!hotelId) return res.status(400).json({ message: 'Falta x-hotel-id' });
+
     const { reservationId } = req.body;
     
-    // Verificar si ya existe
     const existing = await Folio.findOne({ where: { reservationId } });
     if (existing) return res.status(200).json(existing);
 
-    const newFolio = await Folio.create({ reservationId });
+    const newFolio = await Folio.create({ 
+        reservationId, 
+        hotelId
+    });
     res.status(201).json(newFolio);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -105,11 +111,46 @@ const getDailyRevenue = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+const getRevenueReport = async (req, res) => {
+  try {
+    const hotelId = req.headers['x-hotel-id']; // <--- LEER HEADER
+    if (!hotelId) return res.status(400).json({ message: 'Falta x-hotel-id' });
+
+    const { startDate, endDate } = req.query;
+    
+    // Filtro base: Solo pagados Y de este hotel
+    let whereClause = { status: 'PAID', hotelId }; 
+
+    if (startDate && endDate) {
+      whereClause.updatedAt = {
+        [Op.between]: [new Date(startDate), new Date(endDate)]
+      };
+    }
+
+    const folios = await Folio.findAll({ 
+      where: whereClause,
+      include: [Charge] 
+    });
+    
+    const totalRevenue = folios.reduce((sum, f) => sum + parseFloat(f.totalAmount || 0), 0);
+    
+    res.json({ 
+      totalRevenue, 
+      count: folios.length, 
+      folios 
+    });
+
+  } catch (error) {
+    console.error("Error en reporte:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
 
 module.exports = { 
   createFolio, 
   addCharge, 
   getFolioDetails, 
   payFolio, 
-  getDailyRevenue 
+  getDailyRevenue,
+  getRevenueReport 
 };

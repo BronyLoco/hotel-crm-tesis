@@ -27,6 +27,15 @@ const Reservation = sequelize.define('Reservation', {
     type: DataTypes.STRING,
     defaultValue: 'CONFIRMED'
   },
+  totalGuests: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 1 // Por defecto 1 persona
+  },
+  hotelId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
   checkIn: {
     type: DataTypes.DATEONLY, // Solo fecha, sin hora
     allowNull: false

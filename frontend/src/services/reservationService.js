@@ -28,3 +28,7 @@ export const doCheckOut = async (reservationId) => {
   const response = await axios.post(`${API_URL}/${reservationId}/checkout`);
   return response.data;
 };
+export const extendStay = async (reservationId, newCheckOut) => {
+  const response = await axios.patch(`${API_URL}/${reservationId}/extend`, { newCheckOut });
+  return response.data;
+};

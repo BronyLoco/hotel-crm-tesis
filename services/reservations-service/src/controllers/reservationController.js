@@ -5,72 +5,64 @@ require('dotenv').config();
 
 const createReservation = async (req, res) => {
   try {
-    const { guestId, roomTypeId, checkIn, checkOut } = req.body;
+    const hotelId = req.headers['x-hotel-id']; // Obtenemos el ID del Frontend
+    if (!hotelId) return res.status(400).json({ message: 'Falta cabecera x-hotel-id' });
 
-    // 1. Validar fechas lógicas básica
+    const { guestId, roomTypeId, checkIn, checkOut, totalGuests } = req.body;
+    // Validar fechas
     if (new Date(checkIn) >= new Date(checkOut)) {
       return res.status(400).json({ message: 'La fecha de salida debe ser posterior a la de entrada' });
     }
 
-    // ---------------------------------------------------------
-    // PASO 1: CONSULTAR INVENTARIO TOTAL (Microservicio Habitaciones)
-    // ---------------------------------------------------------
+    // 1. CONSULTAR INVENTARIO (Pasando el hotelId)
     let totalRoomsOfType = 0;
     try {
-      // Llamamos a Rooms Service
-      const response = await axios.get(process.env.ROOMS_SERVICE_URL);
+      const response = await axios.get(process.env.ROOMS_SERVICE_URL, {
+        headers: { 'x-hotel-id': hotelId } // <--- CRÍTICO: Pasamos el ID a Rooms
+      });
       const allRooms = response.data;
-      
-      // Contamos cuántas habitaciones existen de este tipo
       totalRoomsOfType = allRooms.filter(room => room.RoomType && room.RoomType.id === parseInt(roomTypeId)).length;
-      
     } catch (error) {
-      console.error("Error contactando al servicio de habitaciones:", error.message);
-      // Fallback: Si falla el servicio, asumimos 0 para no romper, o lanzamos error 503
-      return res.status(503).json({ message: 'El servicio de habitaciones no está disponible para validar inventario.' });
+      return res.status(503).json({ message: 'Error en servicio de habitaciones' });
     }
 
-    if (totalRoomsOfType === 0) {
-      return res.status(400).json({ message: 'No existen habitaciones de ese tipo en el inventario.' });
-    }
-
-    // ---------------------------------------------------------
-    // PASO 2: VERIFICAR DISPONIBILIDAD (Anti-Overbooking)
-    // ---------------------------------------------------------
-    // Lógica: Una reserva choca con otra si:
-    // (NuevaEntrada < SalidaExistente) Y (NuevaSalida > EntradaExistente)
-    
+    // PASO 2: VERIFICAR DISPONIBILIDAD (EN ESTE HOTEL)
     const conflictingReservations = await Reservation.count({
       where: {
+        hotelId, // <--- FILTRO CLAVE: Solo contar reservas de ESTE hotel
         roomTypeId,
-        // Solo nos importan las activas o confirmadas. Las canceladas o check-out (pasadas) no cuentan.
         status: { [Op.in]: ['CONFIRMED', 'CHECKED_IN'] }, 
-        
         [Op.and]: [
-          { checkIn: { [Op.lt]: checkOut } }, // Empieza antes de que yo salga
-          { checkOut: { [Op.gt]: checkIn } }  // Termina después de que yo entre
+          { checkIn: { [Op.lt]: checkOut } }, 
+          { checkOut: { [Op.gt]: checkIn } } 
         ]
       }
     });
 
     const availableRooms = totalRoomsOfType - conflictingReservations;
 
-    console.log(`Debug: Total: ${totalRoomsOfType}, Ocupadas: ${conflictingReservations}, Disponibles: ${availableRooms}`);
-
     if (availableRooms <= 0) {
       return res.status(409).json({ message: 'Lo sentimos, no hay disponibilidad para estas fechas.' });
     }
 
-    // ---------------------------------------------------------
-    // PASO 3: GUARDAR RESERVA
-    // ---------------------------------------------------------
+   // 3. GUARDAR RESERVA
     const newReservation = await Reservation.create({
-      guestId,
-      roomTypeId,
-      checkIn,
-      checkOut,
-      status: 'CONFIRMED'
+      guestId, roomTypeId, checkIn, checkOut, status: 'CONFIRMED',
+      totalGuests: totalGuests || 1,
+      hotelId // Guardamos el ID
     });
+
+    // 4. CREAR FOLIO AUTOMÁTICO (Pasando el hotelId)
+    try {
+      await axios.post(process.env.BILLING_SERVICE_URL, {
+        reservationId: newReservation.id
+      }, {
+        headers: { 'x-hotel-id': hotelId } // <--- CRÍTICO: Pasamos el ID a Billing
+      });
+    } catch (billingError) {
+      console.error("Error creando folio:", billingError.message);
+    }
+
 
     return res.status(201).json({
       message: 'Reserva creada exitosamente',
@@ -79,13 +71,17 @@ const createReservation = async (req, res) => {
 
   } catch (error) {
     console.error("Error en createReservation:", error);
-    return res.status(500).json({ message: 'Error interno del servidor', error: error.message });
+    return res.status(500).json({ message: 'Error interno', error: error.message });
   }
 };
 
 const getReservations = async (req, res) => {
   try {
-    const reservations = await Reservation.findAll();
+    const hotelId = req.headers['x-hotel-id'];
+    if (!hotelId) return res.status(400).json({ message: 'Falta cabecera x-hotel-id' });
+
+    // Solo devolver reservas de este hotel
+    const reservations = await Reservation.findAll({ where: { hotelId } });
     res.json(reservations);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -108,8 +104,12 @@ const checkIn = async (req, res) => {
     // 2. Comunicar al servicio de Habitaciones: "Suma 1 persona"
     try {
       await axios.patch(`${process.env.ROOMS_SERVICE_URL}/${roomNumber}/status`, {
-        occupancyChange: 1
-      });
+        occupancyChange: reservation.totalGuests
+      },
+    {
+    headers: { 'x-hotel-id': req.headers['x-hotel-id'] } 
+    }
+    );
     } catch (error) {
       // Si la habitación está llena, el servicio de rooms devolverá error 400
       return res.status(400).json({ 
@@ -148,14 +148,10 @@ const checkIn = async (req, res) => {
 const checkOut = async (req, res) => {
   try {
     const { reservationId } = req.params;
-
-    // 1. Buscar la reserva
     const reservation = await Reservation.findByPk(reservationId);
+    
     if (!reservation) return res.status(404).json({ message: 'Reserva no encontrada' });
-
-    if (reservation.status !== 'CHECKED_IN') {
-      return res.status(400).json({ message: 'Solo se puede hacer Check-out de reservas activas (CHECKED_IN)' });
-    }
+    if (reservation.status !== 'CHECKED_IN') return res.status(400).json({ message: 'No está en casa' });
 
     // 2. VALIDACIÓN DE DEUDA (Llamada a Billing)
     try {
@@ -178,22 +174,46 @@ const checkOut = async (req, res) => {
     // 3. Liberar espacio en la habitación
     if (reservation.assignedRoomId) {
       try {
+        // Obtenemos la cantidad que entró. Si por error es null/0, asumimos 1 para limpiar algo.
+        const peopleToRemove = reservation.totalGuests > 0 ? reservation.totalGuests : 1;
+        
         await axios.patch(`${process.env.ROOMS_SERVICE_URL}/${reservation.assignedRoomId}/status`, {
-          occupancyChange: -1 // Restamos una persona
-        });
+          occupancyChange: -peopleToRemove, // RESTAMOS
+          status: 'DIRTY' // Marcamos sucia
+        },
+    {
+    headers: { 'x-hotel-id': req.headers['x-hotel-id'] } 
+    }
+      );
       } catch (roomError) {
         console.error("Error liberando habitación:", roomError.message);
       }
     }
-    // 4. Cerrar Reserva
+
     reservation.status = 'CHECKED_OUT';
     await reservation.save();
 
-    res.json({ message: 'Check-out exitoso. Habitación liberada para limpieza.', reservation });
-
+    res.json({ message: 'Check-out exitoso.', reservation });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+// EXTENDER ESTADÍA
+const extendReservation = async (req, res) => {
+  try {
+    const { reservationId } = req.params;
+    const { newCheckOut } = req.body;
 
-module.exports = { createReservation, getReservations, checkIn, checkOut };
+    const reservation = await Reservation.findByPk(reservationId);
+    if (!reservation) return res.status(404).json({ message: 'Reserva no encontrada' });
+
+    // Actualizamos fecha
+    reservation.checkOut = newCheckOut;
+    await reservation.save();
+
+    res.json({ message: 'Estadía extendida correctamente', reservation });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+module.exports = { createReservation, getReservations, checkIn, checkOut, extendReservation };

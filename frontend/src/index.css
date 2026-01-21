@@ -1,0 +1,56 @@
+:root {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #333;
+  background-color: #ffffff;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+/* Reset básico para tablas y botones */
+button {
+  transition: opacity 0.2s;
+}
+button:hover {
+  opacity: 0.9;
+}
+
+/* --- ESTILOS DE IMPRESIÓN (CRÍTICOS PARA REPORTES) --- */
+@media print {
+  /* Ocultar todo lo que no sea el reporte */
+  header, nav, .no-print, button, input, select {
+    display: none !important;
+  }
+  
+  /* Forzar fondo blanco y texto negro */
+  body, #root {
+    background-color: white !important;
+    color: black !important;
+    font-size: 12pt;
+  }
+
+  /* Expandir el área de impresión */
+  #printable-area {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    visibility: visible;
+  }
+  
+  /* Ocultar todo lo demás explícitamente */
+  body * {
+    visibility: hidden;
+  }
+  #printable-area, #printable-area * {
+    visibility: visible;
+  }
+}

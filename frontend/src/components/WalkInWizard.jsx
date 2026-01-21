@@ -25,7 +25,14 @@ function WalkInWizard({ onComplete, refreshTrigger }) {
   const [guestsList, setGuestsList] = useState([]); 
   const [searchDNI, setSearchDNI] = useState('');
   const [currentGuest, setCurrentGuest] = useState({ 
-    id: null, firstName: '', lastName: '', documentId: '', email: '', isVip: false 
+    id: null, 
+    firstName: '', 
+    lastName: '', 
+    documentId: '', 
+    email: '',
+    country: '',
+    city: '',
+    isVip: false 
   });
   const [isExisting, setIsExisting] = useState(false);
 
@@ -66,6 +73,10 @@ function WalkInWizard({ onComplete, refreshTrigger }) {
     if (guestsList.length >= selectedRoom.maxOccupancy) {
       return alert(`❌ Límite alcanzado. Esta habitación solo permite ${selectedRoom.maxOccupancy} personas.`);
     }
+    const isDuplicate = guestsList.some(guest => guest.documentId === currentGuest.documentId);
+    if (isDuplicate) {
+      return alert("⚠️ Esta persona ya está en la lista de registro.");
+    }
 
     if (!currentGuest.documentId || !currentGuest.firstName) return alert("Faltan datos");
     setGuestsList([...guestsList, { ...currentGuest, isExisting }]); 
@@ -86,7 +97,7 @@ function WalkInWizard({ onComplete, refreshTrigger }) {
         } else {
           const payload = {
             ...person,
-            email: person.email || `guest-${person.documentId}@hotel.local`, 
+            email: person.email || null, 
             groupCode: 'WALKIN'
           };
           const newG = await createGuest(payload);
@@ -106,17 +117,14 @@ function WalkInWizard({ onComplete, refreshTrigger }) {
         guestId: finalGuestIds[0], 
         roomTypeId: selectedRoom.RoomType.id,
         checkIn: dates.checkIn,
-        checkOut: dates.checkOut
+        checkOut: dates.checkOut,
+        totalGuests: guestsList.length
       });
       const reservationId = resReserva.reservation.id;
 
       await axios.post(`http://localhost:8080/api/reservations/${reservationId}/checkin`, {
         roomNumber: selectedRoom.number
       });
-
-      if (guestsList.length > 1) {
-        await updateRoomStatus(selectedRoom.number, null, guestsList.length - 1);
-      }
 
       setTimeout(async () => {
           const resFolio = await axios.get(`http://localhost:8080/api/billing/reservation/${reservationId}`);
@@ -183,12 +191,16 @@ function WalkInWizard({ onComplete, refreshTrigger }) {
             <button onClick={handleSearchDNI} style={{cursor:'pointer'}}>🔍 Buscar</button>
           </div>
 
-          <div style={{ display: 'flex', gap: '5px', marginBottom: '10px', backgroundColor: isExisting ? '#e8f5e9' : '#f9f9f9', padding: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px', backgroundColor: isExisting ? '#e8f5e9' : '#f9f9f9', padding: '10px' }}>
              <input placeholder="Nombre" value={currentGuest.firstName} onChange={e => setCurrentGuest({...currentGuest, firstName: e.target.value})} disabled={isExisting} />
              <input placeholder="Apellido" value={currentGuest.lastName} onChange={e => setCurrentGuest({...currentGuest, lastName: e.target.value})} disabled={isExisting} />
-             <input placeholder="DNI" value={currentGuest.documentId} onChange={e => setCurrentGuest({...currentGuest, documentId: e.target.value})} disabled={isExisting} />
-             <button onClick={addGuestToList}>
-               {isExisting ? 'Agregar Recurrente' : 'Agregar Nuevo'}
+             <input placeholder="DNI / Pasaporte" value={currentGuest.documentId} onChange={e => setCurrentGuest({...currentGuest, documentId: e.target.value})} disabled={isExisting} />
+             <input placeholder="País" value={currentGuest.country} onChange={e => setCurrentGuest({...currentGuest, country: e.target.value})} disabled={isExisting} />
+             <input placeholder="Ciudad" value={currentGuest.city} onChange={e => setCurrentGuest({...currentGuest, city: e.target.value})} disabled={isExisting} />
+             <input placeholder="Email (Opcional)" value={currentGuest.email} onChange={e => setCurrentGuest({...currentGuest, email: e.target.value})} disabled={isExisting} />
+
+             <button onClick={addGuestToList} style={{gridColumn: 'span 2', padding:'8px', backgroundColor:'#1565c0', color:'white', border:'none', cursor:'pointer'}}>
+               {isExisting ? 'Agregar Recurrente' : 'Agregar a la Lista'}
              </button>
           </div>
 

@@ -22,6 +22,10 @@ const Room = sequelize.define('Room', {
     allowNull: false,
     defaultValue: 0
   },
+  hotelId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
   roomTypeId: { // Definimos la FK explícitamente
     type: DataTypes.INTEGER,
     allowNull: true

@@ -50,9 +50,16 @@ const seedDatabase = async (req, res) => {
   }
 };
 
+// OBTENER HABITACIONES (Filtradas por Hotel)
 const getRooms = async (req, res) => {
   try {
+    // Leemos el Header que mandó el Frontend
+    const hotelId = req.headers['x-hotel-id'];
+    
+    if (!hotelId) return res.status(400).json({ message: 'Falta cabecera x-hotel-id' });
+
     const rooms = await Room.findAll({
+      where: { hotelId }, // <--- EL FILTRO MÁGICO
       include: [RoomType], 
       order: [['number', 'ASC']]
     });
@@ -95,5 +102,52 @@ const updateRoomStatus = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+const initializeHotelRooms = async (req, res) => {
+  try {
+    const hotelId = req.headers['x-hotel-id'];
+    if (!hotelId) return res.status(400).json({ message: "Falta x-hotel-id" });
 
-module.exports = { seedDatabase, getRooms, updateRoomStatus };
+    // Verificar si ya tiene habitaciones
+    const count = await Room.count({ where: { hotelId } });
+    if (count > 0) return res.status(400).json({ message: "Este hotel ya tiene habitaciones." });
+
+    // 1. Asegurar tipos (Buscamos o creamos los tipos globales)
+    const [typeEco] = await RoomType.findOrCreate({ where: { name: 'Económica' }, defaults: { basePrice: 10.00, capacity: 1 } });
+    const [typeStd] = await RoomType.findOrCreate({ where: { name: 'Estándar' }, defaults: { basePrice: 20.00, capacity: 2 } });
+    const [typeMat] = await RoomType.findOrCreate({ where: { name: 'Matrimonial' }, defaults: { basePrice: 35.00, capacity: 2 } });
+
+    // 2. Crear Habitaciones para ESTE hotel
+    // Usamos prefijos para que no se repitan los números entre hoteles si validas unicidad global, 
+    // pero si validas unicidad por hotel, pueden llamarse igual.
+    // Asumiremos que 'number' es único globalmente por simplicidad en tu modelo actual, 
+    // así que le agregamos el hotelId al número: "101-H1", "101-H2".
+    
+    const suffix = `-H${hotelId}`;
+
+    await Room.bulkCreate([
+      { number: `101${suffix}`, hotelId, roomTypeId: typeEco.id, status: 'AVAILABLE', maxOccupancy: 1, currentOccupancy: 0 },
+      { number: `102${suffix}`, hotelId, roomTypeId: typeEco.id, status: 'AVAILABLE', maxOccupancy: 1, currentOccupancy: 0 },
+      { number: `201${suffix}`, hotelId, roomTypeId: typeStd.id, status: 'AVAILABLE', maxOccupancy: 2, currentOccupancy: 0 },
+      { number: `301${suffix}`, hotelId, roomTypeId: typeMat.id, status: 'AVAILABLE', maxOccupancy: 2, currentOccupancy: 0 },
+    ]);
+
+    res.json({ message: 'Habitaciones inicializadas para su hotel.' });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const createRoom = async (req, res) => {
+  try {
+    const hotelId = req.headers['x-hotel-id'];
+    const { number, roomTypeId, maxOccupancy } = req.body;
+    
+    const newRoom = await Room.create({
+      number, roomTypeId, hotelId, maxOccupancy, currentOccupancy: 0, status: 'AVAILABLE'
+    });
+    res.json(newRoom);
+  } catch (e) { res.status(500).json({error: e.message}); }
+};
+
+module.exports = { seedDatabase, getRooms, updateRoomStatus, initializeHotelRooms, createRoom };

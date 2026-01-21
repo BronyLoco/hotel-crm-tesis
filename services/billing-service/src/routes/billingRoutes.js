@@ -5,12 +5,12 @@ const {
     addCharge, 
     getFolioDetails, 
     payFolio, 
-    getDailyRevenue 
+    getRevenueReport
 } = require('../controllers/billingController');
 
 router.post('/', createFolio); // Crear folio
 router.post('/:folioId/charges', addCharge); // Agregar cargo
 router.get('/reservation/:reservationId', getFolioDetails); // Ver cuenta
 router.post('/:folioId/pay', payFolio); // Pagar cuenta
-router.get('/reports/revenue', getDailyRevenue); // Reporte de ingresos
+router.get('/reports/revenue',getRevenueReport);
 module.exports = router;

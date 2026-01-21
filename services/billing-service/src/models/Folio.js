@@ -12,6 +12,9 @@ const Folio = sequelize.define('Folio', {
     allowNull: false,
     unique: true // Una reserva solo tiene un folio activo
   },
+  hotelId: { 
+    type: DataTypes.INTEGER, allowNull: false
+  },
   status: {
     type: DataTypes.STRING, // 'OPEN', 'CLOSED', 'PAID'
     defaultValue: 'OPEN'

@@ -1,51 +1,186 @@
 version: '3.8'
 
 services:
-  # Servicio de Base de Datos PostgreSQL
+  # --- INFRAESTRUCTURA ---
   postgres:
     image: postgres:15-alpine
-    container_name: hotel_crm_db
+    container_name: hotel_db
+    restart: always
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: rootpassword
     ports:
       - "5432:5432"
     volumes:
-      # Esto guarda los datos en tu disco duro para que no se borren al reiniciar
       - ./infrastructure/pgdata:/var/lib/postgresql/data
-      # Esto ejecuta tu script SQL la primera vez
       - ./infrastructure/init.sql:/docker-entrypoint-initdb.d/init.sql
+    # SALUD: Postgres comprueba cada 5s si está listo
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - hotel-network
 
-  # Interfaz gráfica para ver la Base de Datos (Opcional pero muy útil para ti)
   pgadmin:
     image: dpage/pgadmin4
-    container_name: hotel_db_admin
+    container_name: hotel_pgadmin
+    restart: always
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: root
     ports:
       - "5050:80"
-    depends_on:
-      - postgres
-    volumes:  
+    volumes:
       - ./infrastructure/pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - hotel-network
+
+  # --- MICROSERVICIOS (BACKEND) ---
+  guests-service:
+    build: ./services/guests-service
+    container_name: guests_service
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DATABASE_URL=postgres://admin:rootpassword@hotel_db:5432/guests_db
+    # ESPERA PROFESIONAL: No inicia hasta que la DB esté saludable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hotel-network
+
+  rooms-service:
+    build: ./services/rooms-service
+    container_name: rooms_service
+    restart: always
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - DATABASE_URL=postgres://admin:rootpassword@hotel_db:5432/rooms_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hotel-network
+
+  reservations-service:
+    build: ./services/reservations-service
+    container_name: reservations_service
+    restart: always
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - DATABASE_URL=postgres://admin:rootpassword@hotel_db:5432/reservations_db
+      - ROOMS_SERVICE_URL=http://rooms-service:3002/api/rooms
+      - BILLING_SERVICE_URL=http://billing-service:3004/api/billing
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hotel-network
+
+  billing-service:
+    build: ./services/billing-service
+    container_name: billing_service
+    restart: always
+    ports:
+      - "3004:3004"
+    environment:
+      - PORT=3004
+      - DATABASE_URL=postgres://admin:rootpassword@hotel_db:5432/billing_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hotel-network
+
+  auth-service:
+    build: ./services/auth-service
+    container_name: auth_service
+    restart: always
+    ports:
+      - "3005:3005"
+    environment:
+      - PORT=3005
+      - DATABASE_URL=postgres://admin:rootpassword@hotel_db:5432/auth_db
+      - JWT_SECRET=MiSecretoSuperSeguroParaLaTesis
+      - JWT_EXPIRES_IN=24h
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hotel-network
+
+  # --- FRONTEND & GATEWAY ---
+  frontend:
+    build: ./frontend
+    container_name: hotel_frontend
+    restart: always
+    ports:
+      - "5173:5173"
+    networks:
+      - hotel-network
+
   gateway:
     image: nginx:alpine
     container_name: hotel_gateway
+    restart: always
     ports:
-      - "8080:80" # El puerto 8080 de tu PC llevará al 80 de Nginx
+      - "8080:80"
     volumes:
       - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
-    # extra_hosts es vital en Linux, en Windows Docker Desktop suele manejarlo solo,
-    # pero lo ponemos por seguridad para que reconozca el host.
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      - guests-service
+      - rooms-service
+      - reservations-service
+      - billing-service
+      - auth-service
     networks:
       - hotel-network
+  
+  saas-service:
+    build: ./services/saas-service
+    container_name: saas_service
+    restart: always
+    ports:
+      - "3006:3006"
+    environment:
+      - PORT=3006
+      - DATABASE_URL=postgres://admin:rootpassword@hotel_db:5432/saas_db
+      - AUTH_SERVICE_URL=http://auth-service:3005/api/auth
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hotel-network
+
+  hotels-service:
+      build: ./services/hotels-service
+      container_name: hotels_service
+      restart: always
+      ports:
+        - "3007:3007"
+      environment:
+        - PORT=3007
+        - DATABASE_URL=postgres://admin:rootpassword@hotel_db:5432/hotels_db
+      depends_on:
+        postgres:
+          condition: service_healthy
+      networks:
+        - hotel-network
+
 networks:
   hotel-network:
     driver: bridge
+
+

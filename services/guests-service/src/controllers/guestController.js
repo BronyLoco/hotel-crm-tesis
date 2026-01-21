@@ -4,10 +4,22 @@ const { Op } = require('sequelize');
 // 1. Crear un nuevo huésped
 const createGuest = async (req, res) => {
   try {
-    const { firstName, lastName, email, phoneNumber, documentId, groupCode } = req.body;
+    const hotelId = req.headers['x-hotel-id']; // LEER HEADER
+    if (!hotelId) return res.status(400).json({ message: 'Falta x-hotel-id' });
+
+    const { 
+      firstName, 
+      lastName, 
+      email, 
+      phoneNumber, 
+      documentId, 
+      groupCode,
+      country,
+      city 
+    } = req.body;
 
     // Verificar si ya existe (opcional, pero buena práctica)
-    const existingGuest = await Guest.findOne({ where: { documentId } });
+    const existingGuest = await Guest.findOne({ where: { documentId, hotelId } });
     if (existingGuest) {
       return res.status(400).json({ message: 'El huésped ya existe con este documento.' });
     }
@@ -16,10 +28,13 @@ const createGuest = async (req, res) => {
     const newGuest = await Guest.create({
       firstName,
       lastName,
-      email,
+      email: email || null,
       phoneNumber,
       documentId,
-      groupCode: groupCode || null
+      country,
+      city,
+      groupCode: groupCode || null,
+      hotelId
     });
 
     return res.status(201).json(newGuest);
@@ -33,8 +48,11 @@ const createGuest = async (req, res) => {
 // 2. Obtener todos los huéspedes
 const getGuests = async (req, res) => {
   try {
+    const hotelId = req.headers['x-hotel-id']; // LEER HEADER
+    if (!hotelId) return res.status(400).json({ message: 'Falta x-hotel-id' });
+
     const { groupCode, documentId } = req.query; // Agregamos documentId
-    let whereClause = {};
+    let whereClause = {hotelId};
 
     if (groupCode) whereClause.groupCode = groupCode;
     if (documentId) whereClause.documentId = documentId; // Filtro nuevo

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { getRooms, updateRoomStatus } from '../services/roomService';
+import { getRooms, updateRoomStatus, initializeRooms } from '../services/roomService';
 
-function RoomList() {
+function RoomList({refreshTrigger, onUpdate}) {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchRooms = async () => {
     try {
+      setLoading(true);
       const data = await getRooms();
       const sorted = data.sort((a, b) => a.number.localeCompare(b.number));
       setRooms(sorted);
@@ -17,14 +18,45 @@ function RoomList() {
     }
   };
 
-  useEffect(() => {
-    fetchRooms();
-  }, []);
+  useEffect(() => { fetchRooms(); }, [refreshTrigger] );
+
+const handleInit = async () => {
+    try {
+      setLoading(true);
+      await initializeRooms(); // Llama al endpoint de creación
+      await fetchRooms(); // Recarga
+      alert("✅ Habitaciones creadas exitosamente.");
+    } catch (error) {
+      alert("Error inicializando: " + (error.response?.data?.message || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <p style={{textAlign:'center'}}>Cargando inventario...</p>;
+if (rooms.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px', border: '2px dashed #ccc', borderRadius: '10px', marginTop: '20px' }}>
+        <h3 style={{ color: '#666' }}>Este hotel no tiene habitaciones configuradas</h3>
+        <p>Como es un hotel nuevo, debe inicializar el inventario base.</p>
+        <button 
+          onClick={handleInit}
+          style={{ backgroundColor: '#1565c0', color: 'white', padding: '15px 30px', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', marginTop: '10px' }}
+        >
+          🏗️ Construir Habitaciones (Demo)
+        </button>
+      </div>
+    );
+  }
 
   const handleClean = async (roomNumber) => {
     try {
       setLoading(true);
-      await updateRoomStatus(roomNumber, 'AVAILABLE');
+      //Limpieza manual (set status available y ocupacion a 0)
+      await updateRoomStatus(roomNumber, 'AVAILABLE',0);
+      // 1. Avisamos al padre (App) para que actualice a los demás (Wizard)
+      if (onUpdate) onUpdate();
+      // 2. Nos actualizamos nosotros mismos
       await fetchRooms();
     } catch (error) {
       alert("Error al actualizar estado");

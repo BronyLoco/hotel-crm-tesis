@@ -45,3 +45,9 @@ export const getRevenue = async () => {
   const response = await axios.get(`${API_URL}/reports/revenue`);
   return response.data;
 };
+export const getRevenueReport = async (start, end) => {
+  // Si no hay fechas, busca todo
+  const query = start && end ? `?startDate=${start}&endDate=${end}` : '';
+  const response = await axios.get(`${API_URL}/reports/revenue${query}`);
+  return response.data;
+};
