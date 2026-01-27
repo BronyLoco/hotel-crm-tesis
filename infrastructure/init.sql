@@ -2,4 +2,9 @@ CREATE DATABASE guests_db;
 CREATE DATABASE reservations_db;
 CREATE DATABASE rooms_db;
 CREATE DATABASE billing_db;
+CREATE DATABASE auth_db;
+CREATE DATABASE saas_db;
+CREATE DATABASE hotels_db;
+
+
 CREATE DATABASE reports_db;

@@ -192,12 +192,12 @@ function WalkInWizard({ onComplete, refreshTrigger }) {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px', backgroundColor: isExisting ? '#e8f5e9' : '#f9f9f9', padding: '10px' }}>
-             <input placeholder="Nombre" value={currentGuest.firstName} onChange={e => setCurrentGuest({...currentGuest, firstName: e.target.value})} disabled={isExisting} />
-             <input placeholder="Apellido" value={currentGuest.lastName} onChange={e => setCurrentGuest({...currentGuest, lastName: e.target.value})} disabled={isExisting} />
-             <input placeholder="DNI / Pasaporte" value={currentGuest.documentId} onChange={e => setCurrentGuest({...currentGuest, documentId: e.target.value})} disabled={isExisting} />
-             <input placeholder="País" value={currentGuest.country} onChange={e => setCurrentGuest({...currentGuest, country: e.target.value})} disabled={isExisting} />
-             <input placeholder="Ciudad" value={currentGuest.city} onChange={e => setCurrentGuest({...currentGuest, city: e.target.value})} disabled={isExisting} />
-             <input placeholder="Email (Opcional)" value={currentGuest.email} onChange={e => setCurrentGuest({...currentGuest, email: e.target.value})} disabled={isExisting} />
+             <input placeholder="Nombre" value={currentGuest.firstName || ''} onChange={e => setCurrentGuest({...currentGuest, firstName: e.target.value})} disabled={isExisting} />
+             <input placeholder="Apellido" value={currentGuest.lastName || ''} onChange={e => setCurrentGuest({...currentGuest, lastName: e.target.value})} disabled={isExisting} />
+             <input placeholder="DNI / Pasaporte" value={currentGuest.documentId || ''} onChange={e => setCurrentGuest({...currentGuest, documentId: e.target.value})} disabled={isExisting} />
+             <input placeholder="País" value={currentGuest.country || ''} onChange={e => setCurrentGuest({...currentGuest, country: e.target.value})} disabled={isExisting} />
+             <input placeholder="Ciudad" value={currentGuest.city || ''} onChange={e => setCurrentGuest({...currentGuest, city: e.target.value})} disabled={isExisting} />
+             <input placeholder="Email (Opcional)" value={currentGuest.email || ''} onChange={e => setCurrentGuest({...currentGuest, email: e.target.value})} disabled={isExisting} />
 
              <button onClick={addGuestToList} style={{gridColumn: 'span 2', padding:'8px', backgroundColor:'#1565c0', color:'white', border:'none', cursor:'pointer'}}>
                {isExisting ? 'Agregar Recurrente' : 'Agregar a la Lista'}

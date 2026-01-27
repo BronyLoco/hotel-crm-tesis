@@ -6,7 +6,14 @@ export const createHotel = async (hotelData) => {
   return response.data;
 };
 
-export const getMyHotels = async (tenantId) => {
-  const response = await axios.get(`${API_URL}?tenantId=${tenantId}`);
+export const getMyHotels = async (user, tenantId = null) => {
+  // Construimos la query string con todos los datos necesarios
+  let query = `?userId=${user.id}&role=${user.role}`;
+  
+  if (tenantId) {
+    query += `&tenantId=${tenantId}`;
+  }
+
+  const response = await axios.get(`${API_URL}${query}`);
   return response.data;
 };

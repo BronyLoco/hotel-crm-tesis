@@ -14,25 +14,30 @@ function HotelSelector({ user, onHotelSelected }) {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // 1. ¿Quién es mi empresa?
-        const tenantData = await getTenantByUser(user.id);
-        setTenant(tenantData);
+        // 1. Obtener Tenant (Solo si soy Manager)
+        let currentTenantId = null;
+        
+        if (user.role === 'MANAGER') {
+            const tenantData = await getTenantByUser(user.id);
+            setTenant(tenantData);
+            currentTenantId = tenantData.id;
+        }
 
-        // 2. ¿Qué hoteles tengo?
-        const hotelsData = await getMyHotels(tenantData.id);
+        // 2. Obtener Hoteles (Pasando USER completo y el ID de empresa)
+        // CORRECCIÓN AQUÍ: Pasamos 'user' como primer argumento
+        const hotelsData = await getMyHotels(user, currentTenantId);
         setHotels(hotelsData);
         
-        // Si ya hay hoteles, no mostrar formulario de creación por defecto
-        if (hotelsData.length === 0) setShowCreate(true);
+        if (user.role === 'MANAGER' && hotelsData.length === 0) setShowCreate(true);
 
       } catch (error) {
-        console.error("Error cargando datos de empresa:", error);
+        console.error("Error cargando datos:", error);
       } finally {
         setLoading(false);
       }
     };
     loadData();
-  }, [user.id]);
+  }, [user.id, user.role]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -40,7 +45,7 @@ function HotelSelector({ user, onHotelSelected }) {
       await createHotel({ ...newHotel, tenantId: tenant.id });
       alert("✅ Hotel creado exitosamente");
       // Recargar lista
-      const updatedHotels = await getMyHotels(tenant.id);
+      const updatedHotels = await getMyHotels(user, tenant.id);
       setHotels(updatedHotels);
       setShowCreate(false);
     } catch (error) {
@@ -76,7 +81,7 @@ function HotelSelector({ user, onHotelSelected }) {
         ))}
 
         {/* TARJETA DE "AGREGAR NUEVO" */}
-        {!showCreate && (
+        {!showCreate && user.role === 'MANAGER' && (
           <div onClick={() => setShowCreate(true)}
                style={{ 
                  width: '200px', padding: '20px', border: '2px dashed #ccc', borderRadius: '10px', 

@@ -79,4 +79,23 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { register, login };
+// Buscar usuario por username exacto (para asignación de staff)
+const findUser = async (req, res) => {
+  try {
+    const { username } = req.query;
+    if (!username) return res.status(400).json({ message: "Falta username" });
+
+    const user = await User.findOne({ 
+        where: { username },
+        attributes: ['id', 'username', 'fullName', 'role'] // No devolvemos el password
+    });
+
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = { register, login, findUser };

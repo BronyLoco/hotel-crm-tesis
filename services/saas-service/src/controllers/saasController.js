@@ -108,13 +108,23 @@ const processPayment = async (req, res) => {
 const getTenantByUser = async (req, res) => {
   try {
     const { userId } = req.params;
+    
+    console.log(`🔎 [SAAS] Buscando Tenant para el User ID: ${userId}`);
+
     const tenant = await Tenant.findOne({ where: { ownerUserId: userId } });
     
-    if (!tenant) return res.status(404).json({ message: 'Usuario no tiene empresa asignada' });
+    if (!tenant) {
+      console.warn(`⚠️ [SAAS] No se encontró Tenant para User ID: ${userId}`);
+      return res.status(404).json({ message: 'Usuario no tiene empresa asignada' });
+    }
     
+    console.log(`✅ [SAAS] Tenant encontrado:`, tenant.toJSON());
     res.json(tenant);
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    // ESTO ES LO QUE NECESITAMOS VER:
+    console.error("🔴 [SAAS] ERROR CRITICO EN getTenantByUser:", error);
+    res.status(500).json({ error: error.message, stack: error.stack });
   }
 };
 
