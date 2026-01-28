@@ -83,6 +83,7 @@ services:
       - DATABASE_URL=postgres://admin:rootpassword@hotel_db:5432/reservations_db
       - ROOMS_SERVICE_URL=http://rooms-service:3002/api/rooms
       - BILLING_SERVICE_URL=http://billing-service:3004/api/billing
+      - AUDIT_SERVICE_URL=http://audit-service:3008/api/audit
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,6 +99,7 @@ services:
     environment:
       - PORT=3004
       - DATABASE_URL=postgres://admin:rootpassword@hotel_db:5432/billing_db
+      - AUDIT_SERVICE_URL=http://audit-service:3008/api/audit
     depends_on:
       postgres:
         condition: service_healthy
@@ -178,6 +180,21 @@ services:
           condition: service_healthy
       networks:
         - hotel-network
+  
+  audit-service:
+    build: ./services/audit-service
+    container_name: audit_service
+    restart: always
+    ports:
+      - "3008:3008"
+    environment:
+      - PORT=3008
+      - DATABASE_URL=postgres://admin:rootpassword@hotel_db:5432/audit_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hotel-network
 
 networks:
   hotel-network:

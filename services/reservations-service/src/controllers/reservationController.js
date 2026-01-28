@@ -121,6 +121,9 @@ const checkIn = async (req, res) => {
     reservation.status = 'CHECKED_IN';
     reservation.assignedRoomId = roomNumber;
     await reservation.save();
+    
+    //AUDIT
+    sendAudit('CHECK_IN', `Reserva ${reservation.id} asignada a ${roomNumber}`, req.headers['x-hotel-id']);
 
     // ---------------------------------------------------------
     // PASO 4 (NUEVO): CREAR AUTOMÁTICAMENTE EL FOLIO EN FACTURACIÓN
@@ -193,6 +196,11 @@ const checkOut = async (req, res) => {
     reservation.status = 'CHECKED_OUT';
     await reservation.save();
 
+    
+    //AUDIT
+    sendAudit('CHECK_OUT', `Reserva ${reservation.id} asignada a ${roomNumber}`, req.headers['x-hotel-id']);
+
+
     res.json({ message: 'Check-out exitoso.', reservation });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -216,4 +224,15 @@ const extendReservation = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+const sendAudit = (action, details, hotelId) => {
+   // Fire and Forget (No esperamos respuesta para no bloquear al usuario)
+   axios.post(process.env.AUDIT_SERVICE_URL, {
+       action, details, hotelId, username: 'Sistema/Usuario' 
+       // Nota: Para tener el username real, deberíamos pasarlo desde el frontend en el header también.
+       // Por ahora lo dejamos genérico o leemos un header 'x-user-name' si decidimos implementarlo.
+   }).catch(err => console.error("Fallo auditoría:", err.message));
+};
+
+
 module.exports = { createReservation, getReservations, checkIn, checkOut, extendReservation };
