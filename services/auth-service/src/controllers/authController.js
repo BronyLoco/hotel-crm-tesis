@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { Op } = require('sequelize');
 
 // Generar Token JWT
 const signToken = (id, role) => {
@@ -98,4 +99,23 @@ const findUser = async (req, res) => {
   }
 };
 
-module.exports = { register, login, findUser };
+const getUsersBatch = async (req, res) => {
+  try {
+    const { ids } = req.body; // Esperamos un array [1, 2, 5]
+    
+    if (!ids || !Array.isArray(ids)) return res.status(400).json({ message: "Se requiere un array de IDs" });
+
+    const users = await User.findAll({
+      where: { 
+        id: { [Op.in]: ids } // SQL: WHERE id IN (1, 2, 5)
+      },
+      attributes: ['id', 'username', 'fullName', 'role'] // Sin password
+    });
+
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = { register, login, findUser, getUsersBatch };

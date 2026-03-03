@@ -15,10 +15,35 @@ const Guest = sequelize.define('Guest', {
     type: DataTypes.STRING,
     allowNull: false
   },
+   documentId: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: false
+  },
+  nationality: { 
+    type: DataTypes.STRING, 
+    allowNull: true 
+  },
+  birthDate: { 
+    type: DataTypes.DATEONLY, 
+    allowNull: true 
+  },
+  civilStatus: { 
+    type: DataTypes.ENUM('SOLTERO', 'CASADO', 'DIVORCIADO', 'VIUDO', 'OTRO'),
+    defaultValue: 'SOLTERO' 
+  },
+  country: { 
+    type: DataTypes.STRING, 
+    allowNull: true 
+  },
+  city: { 
+    type: DataTypes.STRING, 
+    allowNull: true 
+  },
   email: {
     type: DataTypes.STRING,
     allowNull: true,
-    unique: false, // No puede haber dos emails iguales
+    unique: false,
     validate: {
       isEmail: true
     }
@@ -27,20 +52,17 @@ const Guest = sequelize.define('Guest', {
     type: DataTypes.STRING,
     allowNull: true
   },
-  documentId: { // DNI o Pasaporte
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: false
-  },
-  
-  country: { type: DataTypes.STRING, allowNull: true },
-  city: { type: DataTypes.STRING, allowNull: true },
-
+ 
+//INFOSYS
   groupCode: {
     type: DataTypes.STRING,
-    allowNull: true, // Puede ser null si viene solo
+    allowNull: true,
     defaultValue: null
   },
+  GroupEventId: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  }, 
   isVip: {
     type: DataTypes.BOOLEAN,
     defaultValue: false
@@ -48,9 +70,14 @@ const Guest = sequelize.define('Guest', {
   hotelId: {
     type: DataTypes.INTEGER,
     allowNull: false
+  },
+   tenantId: { 
+    type: DataTypes.INTEGER, 
+    allowNull: false
   }
+  
 }, {
-  timestamps: true, // Crea createdAt y updatedAt automáticamente
+  timestamps: true,
   tableName: 'guests'
 });
 

@@ -32,3 +32,12 @@ export const extendStay = async (reservationId, newCheckOut) => {
   const response = await axios.patch(`${API_URL}/${reservationId}/extend`, { newCheckOut });
   return response.data;
 };
+export const changeRoom = async (reservationId, newRoomNumber) => {
+  const response = await axios.patch(`${API_URL}/${reservationId}/change-room`, { newRoomNumber });
+  return response.data;
+};
+
+export const getPendingArrivals = async () => {
+  const response = await axios.get(`${API_URL}`);
+  return response.data.filter(r => r.status === 'CONFIRMED');
+};

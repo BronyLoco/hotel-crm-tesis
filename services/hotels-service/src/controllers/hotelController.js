@@ -97,5 +97,30 @@ const getStaff = async (req, res) => {
         res.json(staff);
     } catch (e) { res.status(500).json({ error: e.message }); }
 }
+const getTenantStaff = async (req, res) => {
+  try {
+    const { tenantId } = req.query;
+    if (!tenantId) return res.status(400).json({ message: "Falta tenantId" });
 
-module.exports = { createHotel, getMyHotels, addStaff, getStaff };
+    // 1. Buscar todos mis hoteles
+    const myHotels = await Hotel.findAll({ where: { tenantId }, attributes: ['id'] });
+    const myHotelIds = myHotels.map(h => h.id);
+
+    if (myHotelIds.length === 0) return res.json([]);
+
+    // 2. Buscar todas las asignaciones en esos hoteles
+    const allAssignments = await HotelStaff.findAll({ 
+        where: { hotelId: { [Op.in]: myHotelIds } } 
+    });
+
+    // 3. Extraer IDs de usuarios únicos
+    const uniqueUserIds = [...new Set(allAssignments.map(a => a.userId))];
+
+    // Devolvemos solo los IDs, el frontend buscará los nombres
+    res.json(uniqueUserIds);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = { createHotel, getMyHotels, addStaff, getStaff, getTenantStaff };

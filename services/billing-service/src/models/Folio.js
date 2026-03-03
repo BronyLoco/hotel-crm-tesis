@@ -9,8 +9,12 @@ const Folio = sequelize.define('Folio', {
   },
   reservationId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
     unique: true // Una reserva solo tiene un folio activo
+  },
+   groupEventId: {
+    type: DataTypes.INTEGER,
+    allowNull: true
   },
   hotelId: { 
     type: DataTypes.INTEGER, allowNull: false

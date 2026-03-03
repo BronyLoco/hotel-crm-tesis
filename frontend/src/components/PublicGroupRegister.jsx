@@ -1,18 +1,45 @@
 import { useState } from 'react';
 import { createGuest } from '../services/guestService';
+import GuestDataForm from './GuestDataForm';
 
 function PublicGroupRegister() {
+  const searchParams = new URLSearchParams(window.location.search);
+  const codeFromUrl = searchParams.get('code') || '';
+  const tenantIdFromUrl = searchParams.get('tid');
+  const hotelIdFromUrl = searchParams.get('hid');
+
   const [formData, setFormData] = useState({
-    firstName: '', lastName: '', email: '', documentId: '', phoneNumber: '',
-    groupCode: '' // Campo clave
+    firstName: '', 
+    lastName: '', 
+    email: '', 
+    documentId: '',
+    phoneNumber: '',
+    country: '',
+    city: '',
+    nationality: '',
+    birthDate: '',
+    civilStatus: 'SOLTERO',
+    groupCode: codeFromUrl
   });
   const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!tenantIdFromUrl || !hotelIdFromUrl) {
+      return alert("Error: El enlace de registro es inválido o incompleto. Pida uno nuevo al hotel.");
+    }
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        return alert("❌ Email inválido. Corríjalo o déjelo en blanco (si el campo no es obligatorio).");
+    }
     try {
-      const dataToSend = { ...formData, groupCode: formData.groupCode.toUpperCase() };
-      await createGuest(dataToSend);
+      const dataToSend = { 
+        ...formData, 
+        groupCode: formData.groupCode.toUpperCase()
+      };
+      await createGuest(dataToSend,{
+        'x-tenant-id': tenantIdFromUrl,
+        'x-hotel-id': hotelIdFromUrl
+      });
       setSuccess(true);
     } catch (error) {
       // MEJORA: Leer el mensaje real del backend
@@ -51,6 +78,7 @@ function PublicGroupRegister() {
       
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         
+        {/* Campo de Código (Solo lectura si viene por URL) */}
         <div style={{ backgroundColor: '#e3f2fd', padding: '10px', borderRadius: '5px' }}>
           <label style={{ fontSize: '0.8em', fontWeight: 'bold' }}>CÓDIGO DE GRUPO:</label>
           <input 
@@ -61,13 +89,14 @@ function PublicGroupRegister() {
           />
         </div>
 
-        <input name="firstName" placeholder="Nombre" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} required style={{padding:'8px'}}/>
-        <input name="lastName" placeholder="Apellido" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} required style={{padding:'8px'}}/>
-        <input name="documentId" placeholder="DNI / Pasaporte" value={formData.documentId} onChange={e => setFormData({...formData, documentId: e.target.value})} required style={{padding:'8px'}}/>
-        <input name="email" type="email" placeholder="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required style={{padding:'8px'}}/>
-        
+        {/* FORMULARIO */}
+        <GuestDataForm 
+            guest={formData}
+            onChange={setFormData}
+            disabled={false}
+        />
         <button type="submit" style={{ padding: '12px', backgroundColor: '#1565c0', color: 'white', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer' }}>
-          ¡Registrarme! ⚽
+          ¡Registrarme!
         </button>
       </form>
     </div>

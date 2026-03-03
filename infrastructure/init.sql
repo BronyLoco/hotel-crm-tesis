@@ -8,3 +8,4 @@ CREATE DATABASE hotels_db;
 
 
 CREATE DATABASE reports_db;
+CREATE DATABASE audit_db;

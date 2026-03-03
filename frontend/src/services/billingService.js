@@ -13,9 +13,14 @@ export const getFolioByReservation = async (reservationId) => {
   }
 };
 //Crear Cuenta
-export const createFolio = async (reservationId) => {
+export const createFolio = async (reservationId, groupEventId) => {
+  console.log("createFolio Frontend Service:", { reservationId, groupEventId });
   try {
-    const response = await axios.post(API_URL, { reservationId });
+    const payload = {};
+    if (reservationId) payload.reservationId = reservationId;
+    if (groupEventId) payload.groupEventId = groupEventId;
+
+    const response = await axios.post(API_URL, payload);
     return response.data;
   } catch (error) {
     console.error("Error creando folio:", error);
@@ -51,3 +56,7 @@ export const getRevenueReport = async (start, end) => {
   const response = await axios.get(`${API_URL}/reports/revenue${query}`);
   return response.data;
 };
+export const getFolioByGroup = async (groupId) => {
+   const response = await axios.get(`${API_URL}/group/${groupId}`);
+   return response.data;
+ };

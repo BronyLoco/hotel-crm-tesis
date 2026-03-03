@@ -1,12 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const { createGuest, getGuests } = require('../controllers/guestController');
+const { createGuest, getGuests, deleteGuest, updateGuest } = require('../controllers/guestController');
+const { createEvent, getEvents, updateEvent, toggleEventStatus } = require('../controllers/groupController');
 
 // Definir rutas
-// GET /api/guests
+//GUESTS
 router.get('/', getGuests);
-
-// POST /api/guests
 router.post('/', createGuest);
+router.delete('/:id', deleteGuest);
+router.put('/:id', updateGuest);
+
+//EVENTS
+router.post('/groups', createEvent);
+router.patch('/groups/:id/status', toggleEventStatus);
+router.get('/groups', getEvents);
+router.patch('/groups/:id', updateEvent);
 
 module.exports = router;

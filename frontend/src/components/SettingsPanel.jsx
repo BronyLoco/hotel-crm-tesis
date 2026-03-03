@@ -1,183 +1,192 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import RoomManager from './RoomManager';
-import { getAuditLogs } from '../services/auditService'; 
+import { getAuditLogs } from '../services/auditService';
 
 // URL base
 const API_URL_AUTH = 'http://localhost:8080/api/auth';
 const API_URL_HOTELS = 'http://localhost:8080/api/hotels';
 
 function SettingsPanel({ hotel, user }) {
-  // Pestaña activa por defecto
   const [activeTab, setActiveTab] = useState('rooms');
   
-  // Estados para personal
-  const [staffList, setStaffList] = useState([]);
-  const [searchUsername, setSearchUsername] = useState('');
-  const [foundUser, setFoundUser] = useState(null);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newStaffData, setNewStaffData] = useState({ fullName: '', password: '' });
+  // Estados Personal
+  const [myTeam, setMyTeam] = useState([]); // Lista de objetos usuario {id, name...}
+  const [staffInThisHotel, setStaffInThisHotel] = useState([]); // IDs de los que están aquí
+  const [newStaff, setNewStaff] = useState({ fullName: '', username: '', password: '' });
+  const [loadingStaff, setLoadingStaff] = useState(false);
 
-  // Estados para Auditoría (NUEVO)
+  // Estados Auditoría
   const [auditLogs, setAuditLogs] = useState([]);
 
-  // --- CARGA DE DATOS ---
-  const loadStaff = async () => {
-    try {
-      const res = await axios.get(`${API_URL_HOTELS}/staff?hotelId=${hotel.id}`);
-      setStaffList(res.data);
-    } catch (error) { console.error("Error cargando personal", error); }
-  };
-
+  // --- CARGA INICIAL ---
   useEffect(() => {
-      // Cargar según la pestaña
-      if (activeTab === 'staff') loadStaff();
-      
-      if (activeTab === 'audit') {
-          getAuditLogs(hotel.id)
-              .then(setAuditLogs)
-              .catch(e => console.error(e));
-      }
+    if (activeTab === 'staff') loadStaffData();
+    if (activeTab === 'audit') loadAudit();
   }, [activeTab, hotel.id]);
 
-  // --- LÓGICA DE PERSONAL (Tu código existente) ---
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!searchUsername) return;
-    setIsSearching(true); setFoundUser(null); setShowCreateForm(false);
+  const loadAudit = () => {
+     getAuditLogs(hotel.id).then(setAuditLogs).catch(console.error);
+  };
+
+  // --- LÓGICA DE PERSONAL ---
+  const loadStaffData = async () => {
     try {
-      const res = await axios.get(`${API_URL_AUTH}/find?username=${searchUsername}`);
-      setFoundUser(res.data);
-    } catch (error) {
-      if (error.response && error.response.status === 404) setShowCreateForm(true);
-      else alert("Error al buscar: " + error.message);
-    } finally { setIsSearching(false); }
+        setLoadingStaff(true);
+        // 1. ¿Quién trabaja en ESTE hotel actual?
+        const resCurrent = await axios.get(`${API_URL_HOTELS}/staff?hotelId=${hotel.id}`);
+        const currentIds = resCurrent.data.map(s => s.userId);
+        setStaffInThisHotel(currentIds);
+
+        // 2. ¿Quién trabaja para MÍ (Empresa) en total?
+        // Necesitamos el tenantId. El usuario Manager lo tiene en su contexto o lo buscamos
+        // Truco: Usamos el endpoint que creamos antes getTenantByUser si no tenemos el ID a mano
+        const tenantRes = await axios.get(`http://localhost:8080/api/saas/user/${user.id}`);
+        const tenantId = tenantRes.data.id;
+
+        const resGlobalIds = await axios.get(`${API_URL_HOTELS}/staff/tenant?tenantId=${tenantId}`);
+        const globalIds = resGlobalIds.data;
+
+        // 3. Obtener Nombres de todos esos IDs (Auth Service Batch)
+        if (globalIds.length > 0) {
+            const resUsers = await axios.post(`${API_URL_AUTH}/batch`, { ids: globalIds });
+            setMyTeam(resUsers.data);
+        } else {
+            setMyTeam([]);
+        }
+
+    } catch (e) { console.error(e); }
+    finally { setLoadingStaff(false); }
   };
 
-  const handleAssignExisting = async () => {
-    try {
-      await axios.post(`${API_URL_HOTELS}/staff`, { hotelId: hotel.id, userId: foundUser.id });
-      alert(`✅ ${foundUser.fullName} ahora trabaja en este hotel.`);
-      resetForm(); loadStaff();
-    } catch (error) { alert("Error: " + (error.response?.data?.message || error.message)); }
+  // Asignar un empleado existente a este hotel
+  const assignToHotel = async (userId) => {
+      try {
+          await axios.post(`${API_URL_HOTELS}/staff`, { hotelId: hotel.id, userId });
+          alert("✅ Asignado a este hotel.");
+          loadStaffData();
+      } catch (e) { alert(e.response?.data?.message || "Error asignando"); }
   };
 
-  const handleCreateAndAssign = async () => {
-    try {
-      const authRes = await axios.post(`${API_URL_AUTH}/register`, {
-        username: searchUsername, password: newStaffData.password, fullName: newStaffData.fullName, role: 'RECEPTIONIST'
-      });
-      await axios.post(`${API_URL_HOTELS}/staff`, { hotelId: hotel.id, userId: authRes.data.user.id });
-      alert("✅ Recepcionista creado y asignado.");
-      resetForm(); loadStaff();
-    } catch (error) { alert("Error creando usuario: " + (error.response?.data?.message || error.message)); }
+  // Crear nuevo empleado
+  const createStaff = async (e) => {
+      e.preventDefault();
+      try {
+          // 1. Crear usuario
+          const authRes = await axios.post(`${API_URL_AUTH}/register`, {
+              ...newStaff, role: 'RECEPTIONIST'
+          });
+          const newUserId = authRes.data.user.id;
+
+          // 2. Asignar automáticamente a este hotel
+          await axios.post(`${API_URL_HOTELS}/staff`, { hotelId: hotel.id, userId: newUserId });
+          
+          alert("✅ Recepcionista creado y asignado.");
+          setNewStaff({ fullName: '', username: '', password: '' });
+          loadStaffData();
+      } catch (e) { alert("Error: " + (e.response?.data?.message || e.message)); }
   };
 
-  const resetForm = () => {
-    setSearchUsername(''); setFoundUser(null); setShowCreateForm(false); setNewStaffData({ fullName: '', password: '' });
-  };
-
-
-  // --- RENDERIZADO ---
   return (
     <div style={{ padding: '20px', backgroundColor: 'white', borderRadius: '8px', minHeight: '80vh' }}>
       <h2 style={{borderBottom:'2px solid #eee', paddingBottom:'10px', color: '#1565c0'}}>⚙️ Configuración: {hotel.name}</h2>
       
-      {/* BOTONES DE PESTAÑA */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-        <button onClick={() => setActiveTab('rooms')} style={{padding:'10px', cursor:'pointer', border:'none', background: activeTab==='rooms'?'#e3f2fd':'#f5f5f5', fontWeight: activeTab==='rooms'?'bold':'normal'}}>
-            Habitaciones
-        </button>
-        <button onClick={() => setActiveTab('staff')} style={{padding:'10px', cursor:'pointer', border:'none', background: activeTab==='staff'?'#e3f2fd':'#f5f5f5', fontWeight: activeTab==='staff'?'bold':'normal'}}>
-            Personal
-        </button>
-        {/* TERCER BOTÓN NUEVO */}
-        <button onClick={() => setActiveTab('audit')} style={{padding:'10px', cursor:'pointer', border:'none', background: activeTab==='audit'?'#e3f2fd':'#f5f5f5', fontWeight: activeTab==='audit'?'bold':'normal'}}>
-            Auditoría
-        </button>
+        <button onClick={() => setActiveTab('rooms')} style={{padding:'10px', cursor:'pointer', border:'none', background: activeTab==='rooms'?'#e3f2fd':'#f5f5f5', fontWeight: activeTab==='rooms'?'bold':'normal'}}>Habitaciones</button>
+        <button onClick={() => setActiveTab('staff')} style={{padding:'10px', cursor:'pointer', border:'none', background: activeTab==='staff'?'#e3f2fd':'#f5f5f5', fontWeight: activeTab==='staff'?'bold':'normal'}}>Personal</button>
+        <button onClick={() => setActiveTab('audit')} style={{padding:'10px', cursor:'pointer', border:'none', background: activeTab==='audit'?'#e3f2fd':'#f5f5f5', fontWeight: activeTab==='audit'?'bold':'normal'}}>Auditoría</button>
       </div>
 
-      {/* --- PESTAÑA 1: HABITACIONES --- */}
+      {/* --- PESTAÑA HABITACIONES --- */}
       {activeTab === 'rooms' && (
-        <div>
-            <p>Gestione el inventario físico de este hotel.</p>
-            <RoomManager onUpdate={() => alert("Habitación creada.")} />
-        </div>
+        <RoomManager onUpdate={() => alert("Habitación creada.")} />
       )}
 
-      {/* --- PESTAÑA 2: PERSONAL --- */}
+      {/* --- PESTAÑA PERSONAL (RENOVADA) --- */}
       {activeTab === 'staff' && (
-        <div>
-            {/* ... Aquí va todo tu código de buscador y lista de personal ... */}
-            {/* Para abreviar, asumo que ya tienes esto, no lo borres */}
-            <div style={{display: 'flex', gap: '20px'}}>
-                <div style={{flex: 1, padding: '20px', border: '1px solid #ddd', borderRadius: '8px'}}>
-                    <h3>Gestionar Acceso</h3>
-                    <form onSubmit={handleSearch} style={{display:'flex', gap:'10px', marginBottom:'20px'}}>
-                        <input placeholder="Buscar usuario..." value={searchUsername} onChange={e=>setSearchUsername(e.target.value)} disabled={foundUser || showCreateForm} style={{padding:'8px', flex:1}} />
-                        {(!foundUser && !showCreateForm) && <button type="submit" disabled={isSearching} style={{cursor:'pointer', backgroundColor:'#1565c0', color:'white', border:'none', padding:'0 15px', borderRadius:'4px'}}>🔍</button>}
-                        {(foundUser || showCreateForm) && <button type="button" onClick={resetForm} style={{cursor:'pointer', backgroundColor:'#666', color:'white', border:'none', padding:'0 15px', borderRadius:'4px'}}>❌</button>}
-                    </form>
-                    {foundUser && (
-                        <div style={{backgroundColor: '#e8f5e9', padding: '15px', borderRadius: '5px', textAlign:'center'}}>
-                            <p><strong>{foundUser.fullName}</strong></p>
-                            <button onClick={handleAssignExisting} style={{backgroundColor:'#2E7D32', color:'white', border:'none', padding:'10px', borderRadius:'5px', cursor:'pointer'}}>🔗 Vincular</button>
-                        </div>
-                    )}
-                    {showCreateForm && (
-                        <div style={{backgroundColor: '#fff3cd', padding: '15px', borderRadius: '5px'}}>
-                            <p>Crear nuevo recepcionista:</p>
-                            <input placeholder="Nombre Completo" value={newStaffData.fullName} onChange={e=>setNewStaffData({...newStaffData, fullName:e.target.value})} style={{padding:'8px', marginBottom:'5px', width:'100%'}} />
-                            <input placeholder="Contraseña" type="password" value={newStaffData.password} onChange={e=>setNewStaffData({...newStaffData, password:e.target.value})} style={{padding:'8px', marginBottom:'5px', width:'100%'}} />
-                            <button onClick={handleCreateAndAssign} style={{backgroundColor:'#FF9800', color:'white', border:'none', padding:'10px', borderRadius:'5px', cursor:'pointer', width:'100%'}}>✨ Crear</button>
-                        </div>
-                    )}
-                </div>
-                <div style={{flex: 1, padding: '20px', backgroundColor:'#f9f9f9', borderRadius:'8px'}}>
-                    <h3>Equipo Actual</h3>
-                    <ul style={{paddingLeft: '20px'}}>
-                        {staffList.map(s => <li key={s.id}>ID Usuario: {s.userId} - {s.role}</li>)}
-                    </ul>
-                </div>
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1.5fr', gap:'30px'}}>
+            
+            {/* IZQUIERDA: CREAR NUEVO */}
+            <div style={{padding:'20px', border:'1px solid #ddd', borderRadius:'8px', height:'fit-content'}}>
+                <h3 style={{marginTop:0, color:'#2E7D32'}}>✨ Contratar Nuevo</h3>
+                <form onSubmit={createStaff} style={{display:'flex', flexDirection:'column', gap:'10px'}}>
+                    <label>Nombre Completo</label>
+                    <input value={newStaff.fullName} onChange={e=>setNewStaff({...newStaff, fullName:e.target.value})} required style={{padding:'8px', border:'1px solid #ccc'}} />
+                    
+                    <label>Usuario (Login)</label>
+                    <input value={newStaff.username} onChange={e=>setNewStaff({...newStaff, username:e.target.value})} required style={{padding:'8px', border:'1px solid #ccc'}} autoComplete="new-username" />
+                    
+                    <label>Contraseña Inicial</label>
+                    <input type="password" value={newStaff.password} onChange={e=>setNewStaff({...newStaff, password:e.target.value})} required style={{padding:'8px', border:'1px solid #ccc'}} autoComplete="new-password" />
+                    
+                    <button type="submit" style={{marginTop:'10px', padding:'10px', backgroundColor:'#2E7D32', color:'white', border:'none', borderRadius:'4px', cursor:'pointer', fontWeight:'bold'}}>
+                        Crear y Asignar
+                    </button>
+                </form>
+            </div>
+
+            {/* DERECHA: MI EQUIPO GLOBAL */}
+            <div>
+                <h3 style={{marginTop:0, color:'#1565c0'}}>👥 Mi Equipo (Toda la Cadena)</h3>
+                {loadingStaff ? <p>Cargando...</p> : (
+                    <table style={{width:'100%', borderCollapse:'collapse', fontSize:'0.9em'}}>
+                        <thead style={{backgroundColor:'#f5f5f5'}}>
+                            <tr style={{textAlign:'left'}}>
+                                <th style={{padding:'10px'}}>Nombre</th>
+                                <th style={{padding:'10px'}}>Usuario</th>
+                                <th style={{padding:'10px'}}>Estado en {hotel.name}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {myTeam.map(employee => {
+                                const isAssigned = staffInThisHotel.includes(employee.id);
+                                return (
+                                    <tr key={employee.id} style={{borderBottom:'1px solid #eee'}}>
+                                        <td style={{padding:'10px', fontWeight:'bold'}}>{employee.fullName}</td>
+                                        <td style={{padding:'10px', color:'#666'}}>{employee.username}</td>
+                                        <td style={{padding:'10px'}}>
+                                            {isAssigned ? (
+                                                <span style={{color:'green', fontWeight:'bold'}}>✅ Asignado</span>
+                                            ) : (
+                                                <button onClick={() => assignToHotel(employee.id)} style={{cursor:'pointer', padding:'5px 10px', backgroundColor:'#e3f2fd', border:'1px solid #1565c0', borderRadius:'4px', color:'#1565c0'}}>
+                                                    + Asignar Aquí
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                )
+                            })}
+                            {myTeam.length === 0 && <tr><td colSpan="3" style={{padding:'20px', textAlign:'center', color:'#999'}}>No tienes empleados registrados aún. Crea uno a la izquierda.</td></tr>}
+                        </tbody>
+                    </table>
+                )}
             </div>
         </div>
       )}
 
-      {/* --- PESTAÑA 3: AUDITORÍA (NUEVO) --- */}
+      {/* --- PESTAÑA AUDITORÍA --- */}
       {activeTab === 'audit' && (
           <div>
             <h3>🕵️‍♂️ Auditoría de Seguridad</h3>
-            <p style={{fontSize:'0.9em', color:'#666'}}>Registro inmutable de actividades sensibles.</p>
-            
             <div style={{maxHeight: '400px', overflowY: 'auto', border: '1px solid #ccc', borderRadius: '5px'}}>
                 <table style={{width:'100%', borderCollapse:'collapse', fontSize:'0.9em'}}>
                     <thead style={{backgroundColor:'#333', color:'white', position:'sticky', top:0}}>
                         <tr>
-                            <th style={{padding:'8px', textAlign:'left'}}>Fecha</th>
-                            <th style={{padding:'8px', textAlign:'left'}}>Acción</th>
-                            <th style={{padding:'8px', textAlign:'left'}}>Detalle</th>
-                            <th style={{padding:'8px', textAlign:'left'}}>Usuario</th>
+                            <th style={{padding:'8px'}}>Fecha</th>
+                            <th style={{padding:'8px'}}>Acción</th>
+                            <th style={{padding:'8px'}}>Detalle</th>
+                            <th style={{padding:'8px'}}>Usuario</th>
                         </tr>
                     </thead>
                     <tbody>
                         {auditLogs.map(log => (
                             <tr key={log.id} style={{borderBottom:'1px solid #eee'}}>
-                                <td style={{padding:'8px', whiteSpace:'nowrap'}}>
-                                    {new Date(log.timestamp || log.createdAt).toLocaleString()}
-                                </td>
-                                <td style={{padding:'8px', fontWeight:'bold', color: log.action==='CHECK_IN'?'green':'#d32f2f'}}>
-                                    {log.action}
-                                </td>
+                                <td style={{padding:'8px'}}>{new Date(log.timestamp || log.createdAt).toLocaleString()}</td>
+                                <td style={{padding:'8px', fontWeight:'bold', color: log.action==='CHECK_IN'?'green':'#d32f2f'}}>{log.action}</td>
                                 <td style={{padding:'8px'}}>{log.details}</td>
-                                <td style={{padding:'8px', fontStyle:'italic'}}>
-                                    {log.username || 'Sistema'}
-                                </td>
+                                <td style={{padding:'8px', fontStyle:'italic'}}>{log.username || 'Sistema'}</td>
                             </tr>
                         ))}
-                        {auditLogs.length === 0 && (
-                            <tr><td colSpan="4" style={{padding:'20px', textAlign:'center'}}>Sin actividad registrada</td></tr>
-                        )}
                     </tbody>
                 </table>
             </div>

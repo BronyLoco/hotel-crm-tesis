@@ -47,7 +47,11 @@ const Reservation = sequelize.define('Reservation', {
   status: {
     type: DataTypes.STRING,
     defaultValue: 'CONFIRMED'
-  }
+  },
+  groupEventId: { 
+    type: DataTypes.INTEGER, 
+    allowNull: true 
+  },
 });
 
 module.exports = Reservation;

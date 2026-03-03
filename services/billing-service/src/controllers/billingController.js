@@ -5,22 +5,59 @@ const Charge = require('../models/Charge');
 // Crear Folio (Se llamará cuando haya Check-in)
 const createFolio = async (req, res) => {
   try {
-    const hotelId = req.headers['x-hotel-id']; 
-    if (!hotelId) return res.status(400).json({ message: 'Falta x-hotel-id' });
+    const hotelId = req.headers['x-hotel-id'];
+    const { reservationId, groupEventId } = req.body;
 
-    const { reservationId } = req.body;
-    
-    const existing = await Folio.findOne({ where: { reservationId } });
-    if (existing) return res.status(200).json(existing);
+    // --- LOGS DE DEBUG (Miralos en docker logs billing_service) ---
+    console.log("💰 [BILLING] createFolio llamado.");
+    console.log("   -> Header x-hotel-id:", hotelId);
+    console.log("   -> Body:", req.body);
+    // -------------------------------------------------------------
 
+    if (!hotelId) {
+        console.error("❌ Falta x-hotel-id");
+        return res.status(400).json({ message: "Falta x-hotel-id en header" });
+    }
+
+    // Validación: O es reserva o es grupo
+    if (!reservationId && !groupEventId) {
+        console.error("❌ Falta ID de reserva o grupo");
+        return res.status(400).json({ message: "Debe enviar reservationId o groupEventId" });
+    }
+
+    // Verificar existencia
+    let whereClause = {};
+    if (reservationId) whereClause.reservationId = reservationId;
+    if (groupEventId) whereClause.groupEventId = groupEventId;
+
+    const existing = await Folio.findOne({ where: whereClause });
+    if (existing) {
+        console.log("✅ Folio ya existía:", existing.id);
+        return res.status(200).json(existing);
+    }
+
+    console.log("🔨 Creando nuevo folio...");
     const newFolio = await Folio.create({ 
-        reservationId, 
-        hotelId
+        reservationId: reservationId || null,
+        groupEventId: groupEventId || null,
+        hotelId 
     });
+    
+    console.log("✅ Folio creado ID:", newFolio.id);
     res.status(201).json(newFolio);
+
   } catch (error) {
+    console.error("🔴 Error SQL/Lógica en createFolio:", error);
     res.status(500).json({ error: error.message });
   }
+};
+const getFolioByGroup = async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const folio = await Folio.findOne({ where: { groupEventId: groupId }, include: [Charge] });
+        if (!folio) return res.status(404).json({ message: 'No hay cuenta maestra' });
+        res.json(folio);
+    } catch (e) { res.status(500).json({error: e.message}); }
 };
 
 // Agregar un cargo (Coca-cola, Lavandería, etc)
@@ -59,6 +96,7 @@ const addCharge = async (req, res) => {
 
 // Ver detalle de cuenta
 const getFolioDetails = async (req, res) => {
+  console.log(`💰 [BILLING] Buscando folio para reserva: ${req.params.reservationId}`);
   try {
     const { reservationId } = req.params; // Buscamos por Reserva, es más fácil para el frontend
     
@@ -67,10 +105,14 @@ const getFolioDetails = async (req, res) => {
       include: [Charge] // Traer todos los cargos
     });
 
-    if (!folio) return res.status(404).json({ message: 'No hay cuenta abierta para esta reserva' });
+    if (!folio) {
+      console.warn("   -> Folio no encontrado (404)");
+      return res.status(404).json({ message: 'No hay cuenta' });
+    }
 
     res.json(folio);
   } catch (error) {
+    console.error("🔴 [BILLING] Error buscando:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -152,5 +194,6 @@ module.exports = {
   getFolioDetails, 
   payFolio, 
   getDailyRevenue,
-  getRevenueReport 
+  getRevenueReport,
+  getFolioByGroup 
 };
