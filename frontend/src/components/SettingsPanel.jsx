@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import RoomManager from './RoomManager';
 import { getAuditLogs } from '../services/auditService';
+import GuestList from './GuestList'; 
 
 // URL base
 const API_URL_AUTH = 'http://localhost:8080/api/auth';
 const API_URL_HOTELS = 'http://localhost:8080/api/hotels';
 
-function SettingsPanel({ hotel, user }) {
+function SettingsPanel({ hotel, user, refreshTrigger }) {
   const [activeTab, setActiveTab] = useState('rooms');
   
   // Estados Personal
@@ -95,6 +96,7 @@ function SettingsPanel({ hotel, user }) {
         <button onClick={() => setActiveTab('rooms')} style={{padding:'10px', cursor:'pointer', border:'none', background: activeTab==='rooms'?'#e3f2fd':'#f5f5f5', fontWeight: activeTab==='rooms'?'bold':'normal'}}>Habitaciones</button>
         <button onClick={() => setActiveTab('staff')} style={{padding:'10px', cursor:'pointer', border:'none', background: activeTab==='staff'?'#e3f2fd':'#f5f5f5', fontWeight: activeTab==='staff'?'bold':'normal'}}>Personal</button>
         <button onClick={() => setActiveTab('audit')} style={{padding:'10px', cursor:'pointer', border:'none', background: activeTab==='audit'?'#e3f2fd':'#f5f5f5', fontWeight: activeTab==='audit'?'bold':'normal'}}>Auditoría</button>
+        <button onClick={() => setActiveTab('clients')} style={{padding:'10px', cursor:'pointer', border:'none', background: activeTab==='clients'?'#e3f2fd':'#f5f5f5', fontWeight: activeTab==='clients'?'bold':'normal', color: activeTab==='clients'?'#1565c0':'#333'}}>👥 Clientes (CRM)</button>
       </div>
 
       {/* --- PESTAÑA HABITACIONES --- */}
@@ -192,6 +194,20 @@ function SettingsPanel({ hotel, user }) {
             </div>
           </div>
       )}
+      {/* --- PESTAÑA 4: CLIENTES / CRM --- */}
+        {activeTab === 'clients' && (
+            <div>
+                <div style={{marginBottom:'15px'}}>
+                    <h3 style={{marginTop:0, color:'#1565c0'}}>Base de Datos de Huéspedes</h3>
+                    <p style={{fontSize:'0.9em', color:'#666'}}>
+                        Gestione la información personal, corrija errores de registro y asigne estatus VIP a sus clientes frecuentes.
+                    </p>
+                </div>
+                
+                {/* Reutilizamos tu componente GuestList que ya tiene búsqueda y VIP */}
+                <GuestList refreshTrigger={refreshTrigger} />
+            </div>
+        )}
     </div>
   );
 }

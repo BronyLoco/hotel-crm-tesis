@@ -134,7 +134,7 @@ function BookingManager({ onUpdate }) {
                       <div style={{width:'150px', marginRight:'20px'}}>
                           <div style={{display:'flex', justifyContent:'space-between', fontSize:'0.75em'}}>
                               <span>Progreso:</span>
-                              <span style={{fontWeight:'bold', color: isFull ? 'green' : 'orange'}}>{registered} / {expected} Pax</span>
+                              <span style={{fontWeight:'bold', color: isFull ? 'green' : 'orange'}}>{registered} / {expected} Cantidad</span>
                           </div>
                           <div style={{width:'100%', height:'6px', backgroundColor:'#e0e0e0', borderRadius:'3px'}}>
                               <div style={{width: `${progress}%`, height:'100%', backgroundColor: isFull ? '#4CAF50' : '#FF9800', borderRadius:'3px'}}></div>

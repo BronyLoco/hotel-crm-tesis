@@ -163,13 +163,13 @@ const handleCancelReservation = async (reservationId) => {
     }
 };
 const handleDelete = async (id) => {
-      if(!confirm("⚠️ ¿Estás seguro de ELIMINAR permanentemente este registro?")) return;
+      if(!confirm("⚠️ ¿Estás seguro de ELIMINAR permanentemente esta reserva del historial?")) return;
       try {
           await axios.delete(`http://localhost:8080/api/reservations/${id}`);
           alert("🗑️ Registro eliminado.");
           loadData();
           if(onUpdate) onUpdate();
-      } catch (e) { alert("Error: " + e.message); }
+      } catch (e) { alert("Error: " + (e.response?.data?.message || e.message)); }
   };
 
   // --- FILTROS Y RENDER ---
@@ -237,64 +237,60 @@ const handleDelete = async (id) => {
                               </span>
                           </td>
                           <td style={{textAlign:'center'}}>
-                              {/* LÓGICA DE BOTONES */}
+                              
+                              {/* 1. LÓGICA PARA "POR LLEGAR" */}
                               {(item.status === 'CONFIRMED' || item.status === 'WAITING_ROOM') && (
                                 <div style={{display:'flex', gap:'5px', justifyContent:'center'}}>
                                     <button onClick={() => handleAssignClick(item)} style={{cursor:'pointer', backgroundColor:'#1976d2', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px'}}>
                                         🛏️ Asignar
                                     </button>
-                                    {/* BOTÓN CANCELAR */}
                                     <button onClick={() => handleCancelReservation(item.id)} style={{cursor:'pointer', backgroundColor:'#d32f2f', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px'}} title="Cancelar Reserva">
                                         ✖
                                     </button>
                                 </div>
-                            )}
+                              )}
 
+                              {/* 2. LÓGICA PARA "EN CASA" */}
                               {item.status === 'CHECKED_IN' && (
                                   <div style={{display:'flex', gap:'5px', justifyContent:'center'}}>
-            
-            {/* BOTÓN EXTENDER (NUEVO) */}
-            <button 
-                onClick={() => setShowExtension(item.raw)} // Pasamos el objeto original (raw)
-                title="Extender Estadía"
-                style={{cursor:'pointer', backgroundColor:'#E3F2FD', border:'1px solid #2196F3', padding:'5px', borderRadius:'4px', color:'#1565C0', fontWeight:'bold'}}
-            >
-                📅
-            </button>
+                                      <button onClick={() => setShowExtension(item.raw)} title="Extender Estadía" style={{cursor:'pointer', backgroundColor:'#E3F2FD', border:'1px solid #2196F3', padding:'5px', borderRadius:'4px', color:'#1565C0', fontWeight:'bold'}}>
+                                          📅
+                                      </button>
 
-            {/* BOTÓN CUENTA */}
-            {/* BOTÓN CUENTA INTELIGENTE */}
-            <button 
-                onClick={() => {
-                    // LÓGICA DE DECISIÓN:
-                    if (item.groupEventId) {
-                        // Si pertenece a un grupo -> Abrir Cuenta Maestra
-                        setShowBilling({ groupId: item.groupEventId });
-                    } else {
-                        // Si es individual -> Abrir Cuenta de la Reserva
-                        setShowBilling({ reservationId: item.id });
-                    }
-                }} 
-                title={item.groupEventId ? "Cuenta Maestra Delegación" : "Cuenta Personal"} 
-                style={{
-                    cursor: 'pointer', 
-                    // Estilo Amarillo para Grupos, Blanco para Individuales
-                    backgroundColor: item.groupEventId ? '#FFF3E0' : '#fff', 
-                    border: item.groupEventId ? '1px solid #FF9800' : '1px solid #ccc', 
-                    padding: '5px', 
-                    borderRadius: '4px', 
-                    fontWeight: 'bold', 
-                    color: item.groupEventId ? '#E65100' : '#333'
-                        }}
-                    >
-                        {/* Icono Ticket para Grupo, Dólar para Individual */}
-                        {item.groupEventId ? '🎫' : '💲'}
-                    </button>
-                        
-                        {/* BOTÓN SALIDA */}
-                        <button onClick={() => handleCheckOut(item.id)} title="Salida" style={{cursor:'pointer', backgroundColor:'#d32f2f', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px'}}>🏃</button>
-                    </div>
+                                      <button 
+                                          onClick={() => {
+                                              if (item.groupEventId) setShowBilling({ groupId: item.groupEventId });
+                                              else setShowBilling({ reservationId: item.id });
+                                          }} 
+                                          title={item.groupEventId ? "Cuenta Maestra Delegación" : "Cuenta Personal"} 
+                                          style={{
+                                              cursor: 'pointer', 
+                                              backgroundColor: item.groupEventId ? '#FFF3E0' : '#fff', 
+                                              border: item.groupEventId ? '1px solid #FF9800' : '1px solid #ccc', 
+                                              padding: '5px', borderRadius: '4px', fontWeight: 'bold', 
+                                              color: item.groupEventId ? '#E65100' : '#333'
+                                          }}
+                                      >
+                                          {item.groupEventId ? '🎫' : '💲'}
+                                      </button>
+                                      
+                                      <button onClick={() => handleCheckOut(item.id)} title="Salida" style={{cursor:'pointer', backgroundColor:'#d32f2f', color:'white', border:'none', padding:'5px 10px', borderRadius:'4px'}}>🏃</button>
+                                  </div>
                               )}
+
+                              {/* 3. LÓGICA PARA "HISTORIAL" (NUEVO BOTÓN DE BORRAR AQUÍ) */}
+                              {(item.status === 'CHECKED_OUT' || item.status === 'CANCELLED') && item.type === 'RESERVATION' && (
+                                  <div style={{display:'flex', justifyContent:'center'}}>
+                                      <button 
+                                        onClick={() => handleDelete(item.id)} 
+                                        title="Eliminar Registro permanentemente"
+                                        style={{cursor:'pointer', backgroundColor:'#ffebee', color:'#c62828', border:'1px solid #ffcdd2', padding:'5px 10px', borderRadius:'4px'}}
+                                      >
+                                          🗑️ Borrar
+                                      </button>
+                                  </div>
+                              )}
+
                           </td>
                       </tr>
                   ))}
@@ -320,12 +316,12 @@ const handleDelete = async (id) => {
           />
       )}
 
-        {showExtension && (
+      {showExtension && (
           <ExtensionModal 
               reservation={showExtension}
               onClose={() => setShowExtension(null)}
               onSuccess={() => {
-                 loadData(); // Recargar datos para ver la nueva fecha
+                 loadData(); 
                  if (onUpdate) onUpdate();
               }}
           />

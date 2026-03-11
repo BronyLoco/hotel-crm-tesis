@@ -100,7 +100,7 @@ function BookingForm({ onReservationCreated }) {
                         <option key={t.id} value={t.id}>{t.name} (${t.basePrice})</option>
                     ))}
                  </select>
-                 <input type="number" min="1" placeholder="Pax" value={guestsCount} onChange={e=>setGuestsCount(e.target.value)} style={{flex:1}} />
+                 <input type="number" min="1" placeholder="Cantidad" value={guestsCount} onChange={e=>setGuestsCount(e.target.value)} style={{flex:1}} />
              </div>
 
              <button onClick={handleCreate} style={{padding:'10px', backgroundColor:'#2E7D32', color:'white', border:'none', cursor:'pointer', fontWeight:'bold'}}>

@@ -3,31 +3,39 @@ import axios from 'axios';
 import { getRevenue } from './services/billingService';
 import { getCurrentUser, logout } from './services/authService';
 
-// --- COMPONENTES ACTIVOS (MVP v3) ---
+// Componentes Esenciales
 import LoginPage from './components/LoginPage';
 import HotelSelector from './components/HotelSelector';
 import RoomList from './components/RoomList';
-import WalkInWizard from './components/WalkInWizard';
 import UnifiedGuestManager from './components/UnifiedGuestManager';
-import GroupSuite from './components/GroupSuite';
+import SettingsPanel from './components/SettingsPanel';
 import ReportsPanel from './components/ReportsPanel';
 import CalendarView from './components/CalendarView';
-import SettingsPanel from './components/SettingsPanel';
 import PublicGroupRegister from './components/PublicGroupRegister';
 import SaaSRegister from './components/SaaSRegister';
-import GuestList from './components/GuestList';
-import PhoneBooking from './components/PhoneBooking';
+
+// Componentes que ahora vivirán en Modales
+import WalkInWizard from './components/WalkInWizard';
 import BookingManager from './components/BookingManager';
 
+// Nuevos Componentes UI
+import DashboardToolbar from './components/DashboardToolbar';
+import ModalWrapper from './components/ModalWrapper';
+
 function App() {
-  // 1. ESTADOS
   const [user, setUser] = useState(getCurrentUser());
   const [currentView, setCurrentView] = useState('dashboard');
   const [currentHotel, setCurrentHotel] = useState(null);
+  
+  // Triggers
   const [lastUpdate, setLastUpdate] = useState(0); 
   const [totalMoney, setTotalMoney] = useState(0);
 
-  // 2. FUNCIONES
+  // Estados para MODALES (Visibilidad)
+  const [showWalkIn, setShowWalkIn] = useState(false);
+  const [showBooking, setShowBooking] = useState(false);
+
+  // --- LÓGICA (Igual que antes) ---
   const refreshAll = () => setLastUpdate(prev => prev + 1);
 
   const handleHotelSelected = (hotel) => {
@@ -45,153 +53,159 @@ function App() {
     delete axios.defaults.headers.common['x-tenant-id'];
   };
 
-  // 3. EFECTOS
   useEffect(() => {
     if (user && currentHotel) {
       const loadMoney = async () => {
         try {
           const data = await getRevenue();
           setTotalMoney(data.totalRevenue);
-        } catch (e) { /* Error silencioso */ }
+        } catch (e) { }
       };
       loadMoney();
     }
   }, [lastUpdate, user, currentHotel]);
 
-  useEffect(() => {
-    const interceptor = axios.interceptors.response.use(
-      r => r,
-      error => {
-        if (error.config?.url?.includes('/login')) return Promise.reject(error);
-        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-          handleLogout();
-          alert("Sesión expirada o acceso denegado.");
-        }
-        return Promise.reject(error);
-      }
-    );
-    return () => axios.interceptors.response.eject(interceptor);
-  }, []);
-
-  // 4. ENRUTAMIENTO PÚBLICO
+  // --- RENDERIZADO ---
   const path = window.location.pathname.replace(/\/+$/, '');
-  if (path === '/registro-grupo') return <PublicGroupRegister />;
-  if (path === '/registro-saas') return <SaaSRegister />;
-
-  // 5. MUROS (LOGIN Y SELECTOR)
+  
+  if (path === '/registro-grupo') {
+      return <PublicGroupRegister />; // <--- Si es esta ruta, sale de App.jsx inmediatamente
+  }
+  if (path === '/registro-saas') {
+      return <SaaSRegister />;
+  }
   if (!user) return <LoginPage onLoginSuccess={() => setUser(getCurrentUser())} />;
   
   if (!currentHotel && (user.role === 'MANAGER' || user.role === 'RECEPTIONIST')) {
     return <HotelSelector user={user} onHotelSelected={handleHotelSelected} />;
   }
 
-  // 6. RENDER PRINCIPAL
   return (
-    <div style={{ padding: '20px', fontFamily: 'Segoe UI, sans-serif', maxWidth: '1450px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', fontFamily: 'Segoe UI, sans-serif', maxWidth: '1600px', margin: '0 auto', backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
       
-      {/* HEADER RECUPERADO Y MEJORADO */}
+      {/* HEADER */}
       <header style={{ 
-        marginBottom: '20px', borderBottom: '2px solid #1565c0', paddingBottom: '10px', color: '#1565c0',
+        marginBottom: '20px', padding: '15px 20px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center'
       }}>
+        
+        {/* PARTE 1: IZQUIERDA (Logo y Cambio de Hotel) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <h1 style={{ margin: 0 }}>🏨 Hotel CRM</h1>
-          <span style={{ backgroundColor: '#e3f2fd', padding: '5px 12px', borderRadius: '15px', fontSize: '0.85em', fontWeight: 'bold' }}>
-            👤 {user.username}
-          </span>
+          <div style={{display:'flex', flexDirection:'column'}}>
+             <h1 style={{ margin: 0, fontSize: '1.5em', lineHeight:'1' }}>🏨 Hotel CRM</h1>
+             <span style={{ fontSize: '0.8em', color: '#666' }}>
+               {user.role === 'MANAGER' ? 'Panel Gerencial' : 'Panel de Recepción'}
+             </span>
+          </div>
+
           {currentHotel && (
-             <div style={{backgroundColor:'#fff3cd', padding:'5px 12px', borderRadius:'5px', border:'1px solid #ffecb3', fontSize: '0.9em'}}>
-                <strong>{currentHotel.name}</strong>
-                <button onClick={() => {setCurrentHotel(null);}} style={{marginLeft:'10px', cursor:'pointer', border:'none', background:'none', textDecoration:'underline', color:'#666'}}>Cambiar</button>
+             <div 
+                onClick={() => { setCurrentHotel(null); delete axios.defaults.headers.common['x-hotel-id']; }}
+                title="Clic para cambiar de sucursal"
+                style={{
+                    backgroundColor: '#e3f2fd', 
+                    padding: '8px 15px', 
+                    borderRadius: '8px', 
+                    border: '1px solid #90caf9', 
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    transition: 'all 0.2s',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#bbdefb'}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#e3f2fd'}
+             >
+                <span style={{fontSize:'1.2em'}}>🏢</span>
+                <div>
+                    <div style={{fontWeight:'bold', color:'#1565c0', lineHeight:'1'}}>{currentHotel.name}</div>
+                    <small style={{fontSize:'0.7em', color:'#555'}}>Cambiar Sede ↺</small>
+                </div>
              </div>
           )}
         </div>
 
-        <nav style={{ display: 'flex', gap: '8px' }}>
-            {['dashboard', 'calendar', 'reports'].map(view => (
-              <button key={view} onClick={() => setCurrentView(view)} 
-                style={{
-                  cursor: 'pointer', padding: '8px 16px', borderRadius: '5px', border: 'none',
-                  backgroundColor: currentView === view ? '#1565c0' : 'transparent',
-                  color: currentView === view ? 'white' : '#1565c0',
-                  fontWeight: 'bold'
-                }}>
-                 {view === 'dashboard' ? '🏠 Recepción' : (view === 'calendar' ? '📅 Calendario' : '📊 Reportes')}
-              </button>
-            ))}
+        {/* PARTE 2: CENTRO (Menú de Navegación - Lo que se había borrado) */}
+        <nav style={{ display: 'flex', gap: '5px' }}>
+            <button onClick={() => setCurrentView('dashboard')} style={{padding:'8px 15px', borderRadius:'6px', border:'none', background: currentView==='dashboard'?'#e3f2fd':'transparent', color: currentView==='dashboard'?'#1565c0':'#666', fontWeight:'bold', cursor:'pointer'}}>Recepción</button>
+            <button onClick={() => setCurrentView('calendar')} style={{padding:'8px 15px', borderRadius:'6px', border:'none', background: currentView==='calendar'?'#e3f2fd':'transparent', color: currentView==='calendar'?'#1565c0':'#666', fontWeight:'bold', cursor:'pointer'}}>Calendario</button>
+            
             {user.role === 'MANAGER' && (
-              <button onClick={() => setCurrentView('settings')} style={{ cursor: 'pointer', padding: '8px 16px', borderRadius: '5px', border: 'none', backgroundColor: currentView === 'settings' ? '#1565c0' : 'transparent', color: currentView === 'settings' ? 'white' : '#1565c0', fontWeight: 'bold' }}>
-                 ⚙️ Configuración
-              </button>
+                <>
+                <button onClick={() => setCurrentView('reports')} style={{padding:'8px 15px', borderRadius:'6px', border:'none', background: currentView==='reports'?'#e3f2fd':'transparent', color: currentView==='reports'?'#1565c0':'#666', fontWeight:'bold', cursor:'pointer'}}>Finanzas</button>
+                <button onClick={() => setCurrentView('settings')} style={{padding:'8px 15px', borderRadius:'6px', border:'none', background: currentView==='settings'?'#e3f2fd':'transparent', color: currentView==='settings'?'#1565c0':'#666', fontWeight:'bold', cursor:'pointer'}}>Configuración</button>
+                </>
             )}
         </nav>
         
+        {/* PARTE 3: DERECHA (Dinero y Salir - Lo que se había borrado) */}
         <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-          <div style={{ backgroundColor: '#E8F5E9', padding: '8px 15px', borderRadius: '8px', border: '1px solid #4CAF50', textAlign: 'right' }}>
-            <small style={{ color: '#2E7D32', fontWeight: 'bold', display:'block' }}>CAJA HOTEL</small>
-            <strong style={{ fontSize: '1.2em', color: '#1B5E20' }}>${totalMoney.toFixed(2)}</strong>
+          <div style={{ textAlign: 'right' }}>
+            <small style={{ color: '#888', fontSize:'0.8em' }}>CAJA AL DÍA</small>
+            <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: '#2E7D32' }}>${totalMoney.toFixed(2)}</div>
           </div>
-          <button onClick={handleLogout} style={{ backgroundColor: '#D32F2F', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>Salir</button>
+          <button onClick={handleLogout} style={{ backgroundColor: '#ffcdd2', color: '#c62828', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Salir</button>
         </div>
+
       </header>
-      
-      {/* CONTENIDO DINÁMICO */}
 
-      {currentView === 'dashboard' && currentHotel && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-          
-          {/* NIVEL 1: OPERACIONES DIARIAS */}
-          <div style={{ display: 'grid', gridTemplateColumns: '6fr 4fr', gap: '30px' }}>
+      {/* CONTENIDO PRINCIPAL */}
+      {currentView === 'dashboard' && (
+        <>
+            {/* BARRA DE ACCIÓN RÁPIDA (Lo primero que ve el recepcionista) */}
+            <DashboardToolbar 
+                onOpenWalkIn={() => setShowWalkIn(true)} 
+                onOpenBooking={() => setShowBooking(true)} 
+            />
+
+            <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '25px' }}>
             
-            {/* IZQUIERDA: RECEPCIÓN Y CONTROL */}
-            <section>
-                <div style={{marginBottom: '30px'}}>
-                   <h2 style={{marginTop:0, color:'#1565c0', fontSize:'1.4em'}}>🛎️ Recepción</h2>
-                   <WalkInWizard refreshTrigger={lastUpdate} onComplete={refreshAll} />
-                </div>
-                <div style={{marginBottom: '30px'}}>
-                   <h2 style={{marginTop:0, color:'#1565c0', fontSize:'1.4em'}}>📅 Gestión de Estadía</h2>
-                    <BookingManager  onUpdate={refreshAll} />
-                </div>
-                <div>
-                   <h2 style={{color:'#2E7D32', fontSize:'1.4em'}}>📅 Centro de Control (Estadías)</h2>
-                   <UnifiedGuestManager refreshTrigger={lastUpdate} onUpdate={refreshAll} />
-                </div>
-                 {/* Reserva Telefónica (Llegada Futura) */}
-            <PhoneBooking onReservationCreated={refreshAll} />
-                  {/* Lista de Llegadas */}
-            <div style={{marginTop:'20px'}}>
-               <h4>🔜 Llegadas Pendientes</h4>
-               </div>
-            </section>
-
-            {/* DERECHA: ESTADO Y LOGÍSTICA */}
-            <aside>
-                <div style={{ marginBottom: '30px', backgroundColor: '#fff', padding: '15px', borderRadius: '8px', border: '1px solid #ddd' }}>
-                   <h2 style={{marginTop: 0, fontSize: '1.3em', color: '#F57C00'}}>🛏️ Inventario Físico</h2>
-                   <RoomList refreshTrigger={lastUpdate} onUpdate={refreshAll} />
+                {/* COLUMNA IZQUIERDA: CONTROL DE ESTADÍA (Lo importante) */}
+                <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
+                    <h3 style={{marginTop:0, color: '#333'}}>📋 Centro de Control</h3>
+                    {/* Aquí está todo: Llegadas, En Casa, Historial */}
+                    <UnifiedGuestManager refreshTrigger={lastUpdate} onUpdate={refreshAll} />
                 </div>
 
-                <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '8px', border: '1px solid #ddd' }}>
-                   <h2 style={{marginTop: 0, fontSize: '1.3em', color: '#1565c0'}}>🚌 Delegaciones</h2>
-                   <GroupSuite onUpdate={refreshAll} />
+                {/* COLUMNA DERECHA: ESTADO VISUAL (La referencia) */}
+                <div style={{display:'flex', flexDirection:'column', gap:'20px'}}>
+                    <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
+                        <h3 style={{marginTop: 0, color: '#F57C00'}}>🛏️ Estado Habitaciones</h3>
+                        <RoomList refreshTrigger={lastUpdate} onUpdate={refreshAll} />
+                    </div>
                 </div>
-            </aside>
-          </div>
 
-          {/* NIVEL 2: CRM Y DATOS HISTÓRICOS (ANCHO COMPLETO) */}
-          <section>
-             <h2 style={{marginTop: 0, fontSize: '1.4em', color: '#555', borderTop:'2px solid #eee', paddingTop:'20px'}}>📇 CRM de Clientes y Fidelización</h2>
-             {/* Aquí va la nueva lista super poderosa */}
-             <GuestList refreshTrigger={lastUpdate} />
-          </section>
-
-        </div>
+            </div>
+        </>
       )}
 
+      {/* VISTAS SECUNDARIAS */}
       {currentView === 'calendar' && <CalendarView />}
       {currentView === 'reports' && <ReportsPanel />}
-      {currentView === 'settings' && <SettingsPanel hotel={currentHotel} user={user} />}
+      {currentView === 'settings' && user.role === 'MANAGER' && (
+          <SettingsPanel 
+             hotel={currentHotel} 
+             user={user} 
+             refreshTrigger={lastUpdate} // <--- NUEVA PROP
+          />
+      )}
+      {/* --- MODALES FLOTANTES (Solo aparecen cuando se necesitan) --- */}
+      
+      {showWalkIn && (
+          <ModalWrapper title="🛎️ Entrada sin Reserva (Check-in)" onClose={() => setShowWalkIn(false)}>
+              <WalkInWizard 
+                  refreshTrigger={lastUpdate} 
+                  onComplete={() => { setShowWalkIn(false); refreshAll(); }} 
+              />
+          </ModalWrapper>
+      )}
+
+      {showBooking && (
+          <ModalWrapper title="📅 Gestión de Reservas Futuras y Grupos" onClose={() => setShowBooking(false)}>
+              <BookingManager onUpdate={refreshAll} />
+          </ModalWrapper>
+      )}
 
     </div>
   );
